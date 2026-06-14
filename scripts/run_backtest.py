@@ -78,12 +78,20 @@ def main() -> None:
     else:
         provider = get_price_provider(settings)
         symbols = [s.symbol for s in load_universe()[: args.limit]]
-        log.info("Fetching history for %d symbols...", len(symbols))
-        prices = {s: provider.get_history(s) for s in symbols}
+        # Fetch the FULL backtest range, not the live ~800-bar cap. Without an
+        # explicit start, get_history() only returns data.history_days of bars,
+        # which silently truncates a multi-year --start.
+        import datetime as _dt
+        bt_start = _dt.date.fromisoformat(args.start or settings.backtest.start)
+        bt_end = _dt.date.fromisoformat(args.end) if args.end else None
+        log.info("Fetching history for %d symbols from %s...", len(symbols), bt_start)
+        prices = {s: provider.get_history(s, start=bt_start, end=bt_end) for s in symbols}
         prices = {k: v for k, v in prices.items() if v is not None and len(v) >= 220}
         if not prices:
             log.error("No price data — install yfinance and/or run scripts/seed_data.py first.")
             sys.exit(1)
+        spans = [v.index.min() for v in prices.values()]
+        log.info("Loaded %d symbols; earliest data from %s", len(prices), min(spans).date())
 
     if args.walkforward:
         log.info("Running walk-forward validation...")
