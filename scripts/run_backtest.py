@@ -64,6 +64,8 @@ def main() -> None:
     parser.add_argument("--tearsheet", action="store_true", help="write QuantStats HTML")
     parser.add_argument("--no-regime", action="store_true",
                         help="disable the market-regime entry filter (broad market > 200-DMA)")
+    parser.add_argument("--entry", choices=["breakout", "pullback"], default="breakout",
+                        help="entry rule: breakout (default) or pullback (buy-the-dip)")
     args = parser.parse_args()
 
     setup_logging()
@@ -92,10 +94,10 @@ def main() -> None:
         trades = pd.concat([w.result.trades for w in wf.windows if len(w.result.trades)],
                            ignore_index=True) if wf.windows else pd.DataFrame()
     else:
-        log.info("Running portfolio backtest (regime filter: %s)...",
-                 "off" if args.no_regime else "on")
+        log.info("Running portfolio backtest (entry: %s, regime filter: %s)...",
+                 args.entry, "off" if args.no_regime else "on")
         res = run_backtest(prices, settings, start=args.start, end=args.end,
-                           regime_filter=not args.no_regime)
+                           regime_filter=not args.no_regime, entry_mode=args.entry)
         print("\n" + "=" * 60)
         print("METRICS:", res.metrics)
         print("-" * 60)

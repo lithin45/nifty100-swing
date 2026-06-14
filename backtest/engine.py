@@ -59,12 +59,37 @@ def _entry_signal(df: pd.DataFrame, settings) -> pd.Series:
     return sig.fillna(False)
 
 
+def _pullback_entry_signal(df: pd.DataFrame, settings) -> pd.Series:
+    """Buy-the-dip in an uptrend instead of chasing new highs.
+
+    Conditions (all on the bar's close):
+      * uptrend intact: close > 200-DMA and the 50-DMA is rising,
+      * a recent pullback: the low touched ~the 20-DMA in the last 5 bars,
+      * a turn back up: close reclaims the 20-DMA and is an up day,
+      * not weak/overbought: RSI in 40-65 and still above ~the 50-DMA.
+    """
+    t = settings.technical
+    close, low, openp = df["close"], df["low"], df["open"]
+    sma20 = I.sma(close, 20)
+    sma50 = I.sma(close, 50)
+    sma200 = I.sma(close, 200)
+    rsi = I.rsi(close, t.rsi_period)
+
+    uptrend = (close > sma200) & (sma50 > sma50.shift(10))
+    pulled_back = low.rolling(5).min() <= sma20 * 1.02        # dipped to ~20-DMA recently
+    reclaim = (close > sma20) & (close > close.shift(1)) & (close > openp)  # bouncing up
+    healthy = (rsi > 40) & (rsi < 65) & (close > sma50 * 0.97)
+    return (uptrend & pulled_back & reclaim & healthy).fillna(False)
+
+
 def generate_trades(df: pd.DataFrame, settings, symbol: str = "",
-                    regime_ok: Optional[pd.Series] = None) -> list[dict]:
+                    regime_ok: Optional[pd.Series] = None,
+                    entry_mode: str = "breakout") -> list[dict]:
     """Generate non-overlapping trades for one symbol (one position at a time).
 
     ``regime_ok`` (optional, date-indexed bool) gates entries to days when the
     broad market is healthy — mirroring the live market-regime gate.
+    ``entry_mode`` selects the entry rule: "breakout" (default) or "pullback".
     """
     if df is None or len(df) < 220:
         return []
@@ -72,7 +97,8 @@ def generate_trades(df: pd.DataFrame, settings, symbol: str = "",
     risk = settings.risk
     exits_cfg = settings.exits
 
-    sig = _entry_signal(df, settings)
+    signal_fn = _pullback_entry_signal if entry_mode == "pullback" else _entry_signal
+    sig = signal_fn(df, settings)
     if regime_ok is not None:
         sig = sig & regime_ok.reindex(df.index).ffill().fillna(False)
     sig = sig.to_numpy()
@@ -159,6 +185,7 @@ def run_backtest(
     end: Optional[str] = None,
     regime_filter: bool = True,
     benchmark: Optional[pd.Series] = None,
+    entry_mode: str = "breakout",
 ) -> BacktestResult:
     """Portfolio backtest across many symbols with position cap + costs.
 
@@ -209,7 +236,8 @@ def run_backtest(
     # 1c) generate per-symbol trades (entries gated by the regime filter).
     all_trades: list[dict] = []
     for sym, d in data.items():
-        all_trades.extend(generate_trades(d, settings, sym, regime_ok=regime_ok))
+        all_trades.extend(generate_trades(d, settings, sym, regime_ok=regime_ok,
+                                          entry_mode=entry_mode))
 
     if not all_trades:
         return BacktestResult(pd.DataFrame(), pd.Series(dtype=float), {"trades": 0},
