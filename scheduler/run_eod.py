@@ -258,8 +258,108 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
         raise
 
 
+def market_cues(mctx, regime: dict) -> str:
+    """One-line overnight market summary (US session, crude, USD/INR, VIX)."""
+    m = mctx.macro or {}
+
+    def chg(key: str) -> Optional[float]:
+        s = m.get(key)
+        if s is None:
+            return None
+        s = s.dropna()
+        return (s.iloc[-1] / s.iloc[-2] - 1) * 100 if len(s) >= 2 else None
+
+    bits = []
+    for key, label in [("sp500", "S&P 500"), ("nasdaq", "Nasdaq"),
+                       ("crude", "Crude"), ("usdinr", "USD/INR")]:
+        c = chg(key)
+        if c is not None:
+            bits.append(f"{label} {c:+.1f}%")
+    if regime.get("vix") is not None:
+        bits.append(f"India VIX {regime['vix']:.1f}")
+    return " · ".join(bits)
+
+
+def run_premarket(date_str: Optional[str] = None, send: bool = True,
+                  force: bool = False) -> dict:
+    """Pre-open 'morning brief': refresh overnight news/sentiment/macro and
+    re-check active positions. Does NOT create new technical signals (no fresh
+    NSE prices before the 9:15 open)."""
+    settings = get_settings()
+    setup_logging(settings.logging.level)
+    if date_str is None and not force and not is_trading_day(dt.date.today()):
+        log.info("Not an NSE trading day; skipping pre-market brief.")
+        return {"skipped": True, "reason": "non-trading day"}
+    as_of = resolve_as_of(date_str)
+    log.info("=== PRE-MARKET brief for %s ===", as_of)
+
+    db.init_db()
+    run_id = db.create_run(as_of)
+    try:
+        mctx, regime = build_market_context(settings, as_of)
+        cues = market_cues(mctx, regime)
+        positions = db.get_open_positions()
+        umap = universe_map()
+
+        news_map: dict = {}
+        if positions:
+            try:
+                headlines = get_news_provider(settings).get_headlines(settings.news.max_age_days)
+                stocks = [umap.get(p.symbol) or Stock(p.symbol, p.sector) for p in positions]
+                news_map = match_headlines_to_symbols(headlines, stocks)
+            except Exception as exc:
+                log.warning("news fetch failed: %s", exc)
+
+        providers = (get_price_provider(settings), get_fundamentals_provider(),
+                     get_events_provider(), None)  # no bhavcopy repair pre-open
+        cp = settings.scoring.conflict_penalty
+        reviews: list[dict] = []
+        for pos in positions:
+            try:
+                stock = umap.get(pos.symbol) or Stock(pos.symbol, pos.sector)
+                sctx = _build_stock_context(stock, mctx, providers, news_map)
+                if sctx is None:
+                    continue
+                subs = run_analyzers(sctx, mctx)
+                comp = compute_composite(subs, settings)
+                flags = event_risk_flags(sctx, mctx)
+                sent = next((s for s in subs if s.key == "sentiment"), None)
+                notes: list[str] = []
+                if comp.score < settings.scoring.exit_threshold:
+                    notes.append(f"score fell to {comp.score:.0f}")
+                if sent is not None and sent.raw is not None and sent.raw <= cp.negative_sentiment_threshold:
+                    notes.append(f"negative overnight news ({sent.raw:+.2f})")
+                notes.extend(flags)
+                reviews.append({
+                    "symbol": pos.symbol, "sector": pos.sector, "composite": comp.score,
+                    "status": "warn" if notes else "ok", "note": "; ".join(notes) or "stable",
+                })
+                db.update_position_fields(pos.id, last_composite=comp.score)
+            except Exception as exc:
+                log.warning("pre-market review failed for %s: %s", pos.symbol, exc)
+
+        db.finish_run(run_id, status="success",
+                      market_regime={**regime, "mode": "premarket"},
+                      data_freshness={"mode": "premarket", "cues": cues},
+                      n_evaluated=len(positions))
+        log.info("Pre-market: reviewed %d position(s). Cues: %s", len(reviews), cues)
+
+        if send:
+            from alerting.formatter import format_morning_brief
+            from alerting.telegram import get_notifier
+
+            get_notifier(settings).send_message(format_morning_brief(as_of, cues, reviews))
+        return {"as_of": str(as_of), "mode": "premarket", "reviewed": len(reviews), "cues": cues}
+    except Exception as exc:
+        log.exception("Pre-market run failed")
+        db.finish_run(run_id, status="error", error=str(exc))
+        raise
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Nifty 100 swing EOD pipeline")
+    parser.add_argument("--mode", choices=["eod", "premarket"], default="eod",
+                        help="eod = full scan + signals (default); premarket = morning news brief")
     parser.add_argument("--limit", type=int, default=None, help="evaluate only first N stocks")
     parser.add_argument("--no-send", action="store_true", help="skip Telegram alerts")
     parser.add_argument("--date", type=str, default=None, help="override trading date (YYYY-MM-DD)")
@@ -268,7 +368,10 @@ def main() -> None:
     args = parser.parse_args()
 
     setup_logging(args.log_level or "INFO")
-    result = run_eod(limit=args.limit, send=not args.no_send, date_str=args.date, force=args.force)
+    if args.mode == "premarket":
+        result = run_premarket(send=not args.no_send, date_str=args.date, force=args.force)
+    else:
+        result = run_eod(limit=args.limit, send=not args.no_send, date_str=args.date, force=args.force)
     print(result)
 
 

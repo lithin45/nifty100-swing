@@ -103,3 +103,28 @@ def format_run_header(as_of, n_buy: int, n_exit: int, regime: dict | None = None
         if bits:
             parts.append("Regime: " + " • ".join(bits))
     return "\n".join(parts)
+
+
+def format_morning_brief(as_of, cues: str, reviews: list[dict]) -> str:
+    """Pre-open 'morning brief': overnight market cues + a re-check of active
+    positions/signals against fresh news & sentiment. No new buy ideas (NSE
+    prices don't update until the 9:15 open)."""
+    lines = [f"🌅 *Morning brief — {as_of}*"]
+    if cues:
+        lines.append(f"Overnight cues: {_esc(cues)}")
+    if not reviews:
+        lines.append("\nNo active positions to review today.")
+    else:
+        good = [r for r in reviews if r.get("status") == "ok"]
+        warn = [r for r in reviews if r.get("status") != "ok"]
+        if good:
+            lines.append("\n✅ *Still good to act on / hold:*")
+            for r in good:
+                lines.append(f"• {_esc(r['symbol'])} — score {r['composite']:.0f}/100")
+        if warn:
+            lines.append("\n⚠️ *Reconsider before the open:*")
+            for r in warn:
+                lines.append(f"• {_esc(r['symbol'])} — {_esc(r.get('note', ''))}")
+    lines += ["", "_Pre-open check — no new buy signals (NSE prices update after 9:15). "
+              "Signal-only; execute manually._"]
+    return "\n".join(lines)
