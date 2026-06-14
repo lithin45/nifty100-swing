@@ -169,10 +169,13 @@ backtest:
 # SENTIMENT (FinBERT)
 # ---------------------------------------------------------------------
 sentiment:
-  model: "ProsusAI/finbert"
+  provider: "claude"           # claude | finbert | lexicon. Claude needs ANTHROPIC_API_KEY;
+                               # if it's missing/unavailable it auto-falls back to FinBERT, then lexicon.
+  claude_model: "claude-haiku-4-5"  # cheap + capable for headline sentiment
+  model: "ProsusAI/finbert"    # FinBERT model (fallback)
   max_headlines_per_stock: 15
   recency_days: 7
-  fallback: "lexicon"          # used if transformers/torch unavailable
+  fallback: "lexicon"          # final fallback if transformers/torch unavailable
   prefer_provider_sentiment: true  # use Marketaux's own sentiment when available
 
 # ---------------------------------------------------------------------

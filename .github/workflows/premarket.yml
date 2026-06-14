@@ -28,6 +28,7 @@ jobs:
       TZ: Asia/Kolkata
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       MARKETAUX_KEY: ${{ secrets.MARKETAUX_KEY }}
 
     steps:
@@ -47,7 +48,7 @@ jobs:
             "pandas>=2.1" "numpy>=1.26" "scipy>=1.11" "PyYAML>=6.0" "pydantic>=2.6" \
             "python-dateutil>=2.8" "requests>=2.31" "SQLAlchemy>=2.0" \
             "yfinance>=0.2.40" "nsepython>=2.9" "feedparser>=6.0" \
-            "beautifulsoup4>=4.12" "lxml>=5.0"
+            "beautifulsoup4>=4.12" "lxml>=5.0" "anthropic>=0.40"
 
       - name: Run pre-market brief
         run: |

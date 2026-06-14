@@ -33,8 +33,11 @@ feedparser>=6.0         # RSS news
 beautifulsoup4>=4.12    # screener.in / tickertape scraping
 lxml>=5.0
 
-# ---- Sentiment (FinBERT) — HEAVY / optional ----
-# If absent, analyzers/sentiment.py falls back to a finance lexicon scorer.
+# ---- Sentiment ----
+# Option A (recommended): Claude API — set sentiment.provider=claude + ANTHROPIC_API_KEY.
+#   Lightweight client; cheap Haiku calls. Falls back to FinBERT/lexicon if absent.
+anthropic>=0.40
+# Option B: FinBERT (transformers + torch) — HEAVY / optional. Falls back to lexicon.
 transformers>=4.40
 torch>=2.2
 

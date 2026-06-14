@@ -300,12 +300,14 @@ class BacktestCfg(_Base):
 # External factors                                                            #
 # --------------------------------------------------------------------------- #
 class SentimentCfg(_Base):
-    model: str = "ProsusAI/finbert"
+    provider: str = "finbert"           # claude | finbert | lexicon (chain falls through)
+    model: str = "ProsusAI/finbert"     # FinBERT model id
+    claude_model: str = "claude-haiku-4-5"  # used when provider == claude
     max_headlines_per_stock: int = 15
     recency_days: int = 7
     fallback: str = "lexicon"  # used when transformers/torch unavailable
     # If headlines arrive with a provider sentiment score (e.g. Marketaux),
-    # prefer averaging those over running FinBERT/lexicon on the title text.
+    # prefer averaging those over running the text scorer.
     prefer_provider_sentiment: bool = True
 
 
