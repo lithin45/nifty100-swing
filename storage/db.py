@@ -289,13 +289,14 @@ def close_position(
         pos.holding_days = (exit_date - pos.entry_date).days
 
 
-def closed_positions(limit: int = 200, db_path: Optional[str] = None) -> list[Position]:
+def closed_positions(limit: Optional[int] = 200, db_path: Optional[str] = None) -> list[Position]:
+    """Closed positions, newest first. ``limit=None`` returns the full history."""
     with session_scope(db_path) as s:
-        return list(
-            s.scalars(
-                select(Position)
-                .where(Position.status == "closed")
-                .order_by(Position.exit_date.desc())
-                .limit(limit)
-            )
+        q = (
+            select(Position)
+            .where(Position.status == "closed")
+            .order_by(Position.exit_date.desc())
         )
+        if limit is not None:
+            q = q.limit(limit)
+        return list(s.scalars(q))

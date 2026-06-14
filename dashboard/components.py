@@ -130,6 +130,78 @@ def positions_table(positions: list, prices: Optional[dict] = None) -> pd.DataFr
     return df
 
 
+def paper_trading_section(open_positions: list, closed: list) -> None:
+    """Render the paper-trading track record: stats, cumulative P&L, full ledger.
+
+    Every BUY signal is logged as a simulated position (no real money). This view
+    summarises that running record. It populates over time as positions exit.
+    """
+    import plotly.graph_objects as go
+
+    st.caption("Every BUY signal is logged as a **simulated** trade — no real money. "
+               "This is the system's running track record; it fills in as positions "
+               "hit their target, stop, or time exit over the coming days.")
+
+    n_open, n_closed = len(open_positions), len(closed)
+    wins = [c for c in closed if (c.pnl_pct or 0) > 0]
+    losses = [c for c in closed if (c.pnl_pct or 0) <= 0]
+    win_rate = (len(wins) / n_closed * 100) if n_closed else 0.0
+    # Portfolio-style P&L: each trade's % result weighted by its position size %.
+    realized = sum((c.pnl_pct or 0) * (c.size_pct or 0) / 100 for c in closed)
+    unrealized = 0.0
+    for p in open_positions:
+        last = p.last_price or p.entry_price
+        if p.entry_price:
+            unrealized += (last - p.entry_price) / p.entry_price * 100 * (p.size_pct or 0) / 100
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Open / Closed", f"{n_open} / {n_closed}")
+    c2.metric("Win rate", f"{win_rate:.0f}%", help="Share of closed trades that made a profit")
+    c3.metric("Realized P&L (est.)", f"{realized:+.2f}%",
+              help="Each closed trade's % result, weighted by its position size — "
+                   "an estimate of how the paper account has grown")
+    c4.metric("Open P&L (est.)", f"{unrealized:+.2f}%",
+              help="Unrealized P&L on the trades still open")
+
+    if not n_closed:
+        st.info("No closed paper trades yet. Your open trades show in the **Open Positions** "
+                "tab; this record fills in once they hit a target, stop, or time exit.")
+        return
+
+    avg_w = (sum(c.pnl_pct for c in wins) / len(wins)) if wins else 0.0
+    avg_l = (sum(c.pnl_pct for c in losses) / len(losses)) if losses else 0.0
+    gross_win = sum(c.pnl_pct for c in wins)
+    gross_loss = abs(sum(c.pnl_pct for c in losses))
+    pf = (gross_win / gross_loss) if gross_loss else (float("inf") if gross_win else 0.0)
+    d1, d2, d3 = st.columns(3)
+    d1.metric("Avg win", f"{avg_w:+.1f}%")
+    d2.metric("Avg loss", f"{avg_l:+.1f}%")
+    d3.metric("Profit factor", "∞" if pf == float("inf") else f"{pf:.2f}",
+              help=">1 means winners outweigh losers")
+
+    rows = sorted(closed, key=lambda c: (c.exit_date or dt.date.min))
+    cum, series = 0.0, []
+    for c in rows:
+        cum += (c.pnl_pct or 0) * (c.size_pct or 0) / 100
+        series.append({"date": c.exit_date, "cumulative": round(cum, 3)})
+    cdf = pd.DataFrame(series)
+    fig = go.Figure(go.Scatter(x=cdf["date"], y=cdf["cumulative"], mode="lines+markers",
+                               line=dict(color="#2ca02c"), name="Paper P&L"))
+    fig.update_layout(title="Cumulative paper P&L (% of capital, estimate)", height=300,
+                      margin=dict(l=10, r=10, t=40, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("**Full closed-trade ledger**")
+    ledger = pd.DataFrame([{
+        "Stock": c.symbol, "Sector": c.sector,
+        "Entry": round(c.entry_price, 2), "Exit": round(c.exit_price or 0, 2),
+        "P&L %": round(c.pnl_pct or 0, 1), "Reason": c.exit_reason,
+        "Held (d)": c.holding_days, "Entered": c.entry_date, "Exited": c.exit_date,
+    } for c in rows[::-1]])  # newest first
+    st.dataframe(ledger, use_container_width=True, hide_index=True,
+                 column_config={"P&L %": st.column_config.NumberColumn(format="%.1f%%")})
+
+
 def candlestick_chart(df: pd.DataFrame, *, title: str = "",
                       entry: float = None, stop: float = None, target: float = None,
                       lookback: int = 180):

@@ -25,6 +25,7 @@ from dashboard.auth import require_password
 from dashboard.components import (
     candlestick_chart,
     glossary_expander,
+    paper_trading_section,
     positions_table,
     regime_banner,
     signal_card,
@@ -51,8 +52,8 @@ regime_banner(run)
 if settings.dashboard.show_terms_glossary:
     glossary_expander()
 
-tab_signals, tab_positions, tab_charts, tab_status = st.tabs(
-    ["🟢 Today's Signals", "💼 Open Positions", "📊 Charts", "⚙️ System Status"]
+tab_signals, tab_positions, tab_paper, tab_charts, tab_status = st.tabs(
+    ["🟢 Today's Signals", "💼 Open Positions", "📒 Paper Trading", "📊 Charts", "⚙️ System Status"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -113,6 +114,13 @@ with tab_positions:
                 "Exited": c.exit_date,
             } for c in closed])
             st.dataframe(cdf, use_container_width=True, hide_index=True)
+
+# --------------------------------------------------------------------------- #
+# Paper trading record                                                        #
+# --------------------------------------------------------------------------- #
+with tab_paper:
+    st.subheader("📒 Paper-trading record")
+    paper_trading_section(db.get_open_positions(), db.closed_positions(limit=None))
 
 # --------------------------------------------------------------------------- #
 # Charts                                                                      #
