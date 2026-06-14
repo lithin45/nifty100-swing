@@ -147,7 +147,10 @@ with tab_charts:
     universe_syms = priority + [s for s in all_syms if s not in priority]
     st.caption(f"All {len(all_syms)} Nifty 100 stocks available"
                + (f" · {len(priority)} with signals/positions shown first" if priority else ""))
-    symbol = st.selectbox("Choose a stock", universe_syms)
+    csel, tsel = st.columns([3, 1])
+    symbol = csel.selectbox("Choose a stock", universe_syms)
+    tf_label = tsel.selectbox("Timeframe", ["3M", "6M", "1Y", "2Y", "Max"], index=2)
+    lookback = {"3M": 63, "6M": 126, "1Y": 252, "2Y": 504, "Max": 100_000}[tf_label]
     if symbol:
         try:
             from data_ingestion.prices import get_price_provider
@@ -162,8 +165,11 @@ with tab_charts:
                 entry = sigs[0].entry_price if sigs else None
                 stop = sigs[0].stop_loss if sigs else None
                 target = sigs[0].target if sigs else None
-                fig = candlestick_chart(price_df, title=symbol, entry=entry, stop=stop, target=target)
+                fig = candlestick_chart(price_df, title=symbol, entry=entry, stop=stop,
+                                        target=target, lookback=lookback)
                 st.plotly_chart(fig, use_container_width=True)
+                st.caption(f"Showing {min(lookback, len(price_df))} of {len(price_df)} bars available "
+                           f"(~{settings.data.history_days} days are fetched for the 200-day average).")
         except Exception as exc:
             st.error(f"Could not load chart: {exc}")
 
