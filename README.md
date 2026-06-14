@@ -149,6 +149,15 @@ Every source sits behind an interface in
 bhavcopy; bars that are flat (O=H=L=C) or deviate materially are flagged and
 repaired (`data.validate_with_bhavcopy: true`).
 
+**Marketaux news (optional, better than RSS):** Marketaux returns headlines
+**already tagged to stock tickers** plus a built-in sentiment score, so it skips
+the fuzzy headline→company matching and can feed sentiment directly. To enable:
+1. Get a free key at <https://www.marketaux.com> (free tier ≈ 100 requests/day).
+2. Add `MARKETAUX_KEY` to your secrets / env (and GitHub repo Secrets for the job).
+3. Set `news.provider: marketaux` in `settings.yaml`.
+The system falls back to free RSS automatically if the key is missing. Tune the
+free-tier batching under `news.marketaux` (e.g. `max_requests`).
+
 ---
 
 ## Telegram setup

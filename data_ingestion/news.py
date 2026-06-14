@@ -60,8 +60,11 @@ def match_headlines_to_symbols(
 ) -> dict[str, list[dict[str, Any]]]:
     """Map each stock symbol -> list of headlines mentioning it.
 
-    Matching is word-boundary aware over ``title + summary``.
+    If a headline carries explicit ticker tags (``h["symbols"]``, e.g. from
+    Marketaux), those are trusted directly; otherwise we fall back to
+    word-boundary text matching over ``title + summary``.
     """
+    valid = {st.symbol for st in stocks}
     alias_map: dict[str, list[tuple[str, re.Pattern]]] = {}
     for st in stocks:
         for alias in build_aliases(st):
@@ -70,6 +73,11 @@ def match_headlines_to_symbols(
 
     result: dict[str, list[dict[str, Any]]] = {}
     for h in headlines:
+        tagged = [s for s in (h.get("symbols") or []) if s in valid]
+        if tagged:  # trust provider-supplied entity tags
+            for sym in tagged:
+                result.setdefault(sym, []).append(h)
+            continue
         text = normalize_text(f"{h.get('title', '')} {h.get('summary', '')}")
         for symbol, patterns in alias_map.items():
             if any(pat.search(text) for _, pat in patterns):
@@ -115,9 +123,119 @@ class RssNewsProvider(NewsProvider):
         return out
 
 
+class MarketauxNewsProvider(NewsProvider):
+    """Marketaux news API — returns headlines pre-tagged with stock tickers and
+    an entity sentiment score. Free tier: ~100 requests/day, 3 articles/request.
+
+    Each returned headline dict additionally carries:
+      * ``symbols`` — NSE tickers Marketaux tagged on the article (suffix stripped)
+      * ``provider_sentiment`` — average entity sentiment in [-1, 1] (or None)
+    """
+
+    BASE = "https://api.marketaux.com/v1/news/all"
+
+    def __init__(self, api_token: str, symbols: list[str] | None = None,
+                 cfg=None) -> None:
+        from config.schema import MarketauxCfg
+
+        self.api_token = api_token
+        self.symbols = [s.upper() for s in (symbols or [])]
+        self.cfg = cfg or MarketauxCfg()
+
+    @staticmethod
+    def _article_to_headline(article: dict, suffix: str,
+                             valid: set[str] | None) -> dict[str, Any]:
+        """Convert a Marketaux article into our standard headline dict (testable)."""
+        suffix = suffix.lstrip(".").upper()
+        syms, sents = [], []
+        for ent in article.get("entities", []) or []:
+            raw = str(ent.get("symbol", "")).upper()
+            base = raw.split(".")[0]  # RELIANCE.NSE -> RELIANCE
+            # keep only equity entities on our exchange (or any if suffix blank)
+            ex = str(ent.get("exchange", "")).upper()
+            if suffix and ex and suffix not in ex and not raw.endswith(suffix):
+                continue
+            if valid is not None and base not in valid:
+                continue
+            syms.append(base)
+            sc = ent.get("sentiment_score")
+            if isinstance(sc, (int, float)):
+                sents.append(float(sc))
+        return {
+            "title": article.get("title", ""),
+            "summary": article.get("description") or article.get("snippet", ""),
+            "link": article.get("url", ""),
+            "published": article.get("published_at"),
+            "source": article.get("source", "marketaux"),
+            "symbols": sorted(set(syms)),
+            "provider_sentiment": (sum(sents) / len(sents)) if sents else None,
+        }
+
+    def get_headlines(self, max_age_days: int = 7) -> list[dict[str, Any]]:
+        if not self.api_token:
+            log.error("MARKETAUX_KEY not set; no Marketaux news")
+            return []
+        import requests
+
+        valid = set(self.symbols) or None
+        published_after = (dt.datetime.utcnow() - dt.timedelta(days=max_age_days)).strftime(
+            "%Y-%m-%dT%H:%M"
+        )
+        batch = self.cfg.max_symbols_per_request
+        # Build symbol batches (Marketaux ticker = SYMBOL + suffix).
+        suffix = self.cfg.exchange_suffix
+        batches = ([self.symbols[i:i + batch] for i in range(0, len(self.symbols), batch)]
+                   if self.symbols else [None])
+
+        out: list[dict[str, Any]] = []
+        requests_made = 0
+        for syms in batches:
+            if requests_made >= self.cfg.max_requests:
+                log.warning("Marketaux request cap (%d) reached; stopping", self.cfg.max_requests)
+                break
+            params = {
+                "api_token": self.api_token,
+                "language": self.cfg.language,
+                "filter_entities": "true",
+                "published_after": published_after,
+            }
+            if syms:
+                params["symbols"] = ",".join(f"{s}{suffix}" for s in syms)
+            else:
+                params["countries"] = self.cfg.countries
+            try:
+                resp = requests.get(self.BASE, params=params, timeout=20)
+                requests_made += 1
+                if resp.status_code in (402, 429):
+                    log.warning("Marketaux quota/limit hit (%s); returning partial", resp.status_code)
+                    break
+                resp.raise_for_status()
+                for art in resp.json().get("data", []) or []:
+                    out.append(self._article_to_headline(art, suffix, valid))
+            except Exception as exc:
+                log.debug("Marketaux request failed: %s", exc)
+        return out
+
+
 def get_news_provider(settings=None) -> NewsProvider:
+    """Build the configured news provider.
+
+    Selects Marketaux when ``news.provider == 'marketaux'`` and a ``MARKETAUX_KEY``
+    is available; otherwise falls back to free RSS feeds.
+    """
+    import os
+
     if settings is None:
         from config.loader import get_settings
 
         settings = get_settings()
+
+    if settings.news.provider.lower() == "marketaux":
+        token = os.getenv("MARKETAUX_KEY", "")
+        if token:
+            from config.loader import load_universe
+
+            symbols = [s.symbol for s in load_universe()]
+            return MarketauxNewsProvider(token, symbols=symbols, cfg=settings.news.marketaux)
+        log.warning("news.provider=marketaux but MARKETAUX_KEY not set; using RSS")
     return RssNewsProvider(settings.news.rss_feeds)

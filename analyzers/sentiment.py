@@ -70,9 +70,22 @@ def score_headlines(
     headlines: list[dict[str, Any]],
     model: str = "ProsusAI/finbert",
     max_headlines: int = 15,
+    prefer_provider: bool = True,
 ) -> tuple[float, str]:
-    """Return (signed score in [-1,1], method) averaged over recent headlines."""
-    titles = [h.get("title", "") for h in headlines[:max_headlines] if h.get("title")]
+    """Return (signed score in [-1,1], method) averaged over recent headlines.
+
+    If ``prefer_provider`` and the headlines carry a numeric
+    ``provider_sentiment`` (e.g. Marketaux), those are averaged directly —
+    skipping FinBERT/lexicon entirely.
+    """
+    subset = headlines[:max_headlines]
+    if prefer_provider:
+        provided = [h["provider_sentiment"] for h in subset
+                    if isinstance(h.get("provider_sentiment"), (int, float))]
+        if provided:
+            return max(-1.0, min(1.0, sum(provided) / len(provided))), "provider"
+
+    titles = [h.get("title", "") for h in subset if h.get("title")]
     if not titles:
         return 0.0, "none"
 
@@ -97,7 +110,8 @@ class SentimentAnalyzer:
         if not sctx.headlines:
             return SubScore(self.key, 0.5, "No recent news", raw=0.0,
                             details={"n_headlines": 0, "method": "none"})
-        raw, method = score_headlines(sctx.headlines, cfg.model, cfg.max_headlines_per_stock)
+        raw, method = score_headlines(sctx.headlines, cfg.model, cfg.max_headlines_per_stock,
+                                      prefer_provider=cfg.prefer_provider_sentiment)
         n = len(sctx.headlines)
         tone = "positive" if raw > 0.15 else "negative" if raw < -0.15 else "neutral"
         reason = f"{tone.capitalize()} news tone ({raw:+.2f}) from {n} headline(s) [{method}]"

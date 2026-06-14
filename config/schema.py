@@ -304,9 +304,22 @@ class SentimentCfg(_Base):
     max_headlines_per_stock: int = 15
     recency_days: int = 7
     fallback: str = "lexicon"  # used when transformers/torch unavailable
+    # If headlines arrive with a provider sentiment score (e.g. Marketaux),
+    # prefer averaging those over running FinBERT/lexicon on the title text.
+    prefer_provider_sentiment: bool = True
+
+
+class MarketauxCfg(_Base):
+    exchange_suffix: str = ".NSE"          # Marketaux NSE entity suffix
+    countries: str = "in"
+    language: str = "en"
+    max_symbols_per_request: int = 20      # Marketaux allows batched symbols
+    max_requests: int = 40                 # cap to respect the free tier (100/day)
+    use_provider_sentiment: bool = True     # attach Marketaux's entity sentiment
 
 
 class NewsCfg(_Base):
+    provider: str = "rss"                   # rss | marketaux
     rss_feeds: list[str] = Field(
         default_factory=lambda: [
             "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
@@ -318,6 +331,7 @@ class NewsCfg(_Base):
         ]
     )
     max_age_days: int = 7
+    marketaux: MarketauxCfg = Field(default_factory=MarketauxCfg)
 
 
 class FiiDiiCfg(_Base):

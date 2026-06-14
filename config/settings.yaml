@@ -173,11 +173,13 @@ sentiment:
   max_headlines_per_stock: 15
   recency_days: 7
   fallback: "lexicon"          # used if transformers/torch unavailable
+  prefer_provider_sentiment: true  # use Marketaux's own sentiment when available
 
 # ---------------------------------------------------------------------
-# NEWS (RSS feeds, headline -> stock matching)
+# NEWS (RSS feeds or Marketaux; headline -> stock matching)
 # ---------------------------------------------------------------------
 news:
+  provider: "rss"              # rss (free, default) | marketaux (needs MARKETAUX_KEY)
   rss_feeds:
     - "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
     - "https://www.moneycontrol.com/rss/marketreports.xml"
@@ -186,6 +188,15 @@ news:
     - "https://www.livemint.com/rss/markets"
     - "https://pulse.zerodha.com/feed.php"
   max_age_days: 7
+  # Marketaux: ticker-tagged news + built-in sentiment. Set news.provider=marketaux
+  # and add MARKETAUX_KEY to secrets/env. Free tier: ~100 requests/day, 3 articles each.
+  marketaux:
+    exchange_suffix: ".NSE"          # Marketaux NSE entity suffix
+    countries: "in"
+    language: "en"
+    max_symbols_per_request: 20
+    max_requests: 40                 # cap to stay within the free daily quota
+    use_provider_sentiment: true
 
 # ---------------------------------------------------------------------
 # FII / DII daily flows (NSE cash market, ₹ crore)
