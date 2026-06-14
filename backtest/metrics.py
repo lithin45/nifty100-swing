@@ -38,7 +38,8 @@ def sharpe(returns: pd.Series, rf: float = 0.0) -> float:
 def sortino(returns: pd.Series, rf: float = 0.0) -> float:
     downside = returns[returns < 0]
     dd = downside.std(ddof=0)
-    if dd == 0 or len(returns) < 2:
+    # No down days -> dd is NaN; NaN != 0 so guard explicitly (NaN is not JSON-safe).
+    if len(returns) < 2 or dd == 0 or math.isnan(dd):
         return 0.0
     excess = returns - rf / TRADING_DAYS
     return math.sqrt(TRADING_DAYS) * excess.mean() / dd

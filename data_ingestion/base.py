@@ -54,7 +54,14 @@ def normalize_ohlcv(df: pd.DataFrame, *, drop_na: bool = True) -> pd.DataFrame:
         out.columns = out.columns.get_level_values(0)
 
     out.columns = [str(c).strip().lower() for c in out.columns]
+    # Drop 'adj close' if a real 'close' is present (auto_adjust=False yields both);
+    # otherwise the alias below would create two duplicate 'close' columns and break
+    # the per-column numeric coercion. Keep raw close when both exist.
+    if "close" in out.columns:
+        out = out.drop(columns=[c for c in ("adj close", "adj_close", "adjclose")
+                                if c in out.columns])
     out = out.rename(columns={c: _COLUMN_ALIASES[c] for c in out.columns if c in _COLUMN_ALIASES})
+    out = out.loc[:, ~out.columns.duplicated(keep="first")]  # safety: no dup column names
 
     # Index -> DatetimeIndex.
     if not isinstance(out.index, pd.DatetimeIndex):

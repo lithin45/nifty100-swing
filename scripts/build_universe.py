@@ -40,9 +40,9 @@ _INDUSTRY_TO_SECTOR = {
 }
 
 
-def _sector(industry: str) -> str:
-    key = (industry or "").strip().lower()
-    return _INDUSTRY_TO_SECTOR.get(key, industry.strip() or "Unknown")
+def _sector(industry: str | None) -> str:
+    safe = (industry or "").strip()
+    return _INDUSTRY_TO_SECTOR.get(safe.lower(), safe or "Unknown")
 
 
 def fetch_constituents() -> list[dict]:
@@ -57,10 +57,11 @@ def fetch_constituents() -> list[dict]:
         meta = d.get("meta", {}) or {}
         rows.append({
             "symbol": sym,
-            "isin": meta.get("isin", "") or "",
+            # ISIN/name may live in `meta` or at the row top-level depending on endpoint.
+            "isin": (meta.get("isin") or d.get("isin") or "").strip(),
             "upstox_key": "",
-            "sector": _sector(d.get("industry", "")),
-            "name": meta.get("companyName", "") or "",
+            "sector": _sector(d.get("industry") or meta.get("industry")),
+            "name": (meta.get("companyName") or d.get("companyName") or "").strip(),
         })
     return sorted(rows, key=lambda r: r["symbol"])
 

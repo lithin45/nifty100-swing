@@ -123,7 +123,7 @@ def generate_trades(df: pd.DataFrame, settings, symbol: str = "") -> list[dict]:
                 exit_price, exit_date, reason = cur_stop, idx[j], ("trailing" if cur_stop > stop0 else "stop"); break
             if h[j] >= target:
                 exit_price, exit_date, reason = target, idx[j], "target"; break
-            if (idx[j] - entry_date).days >= risk.max_holding_days:
+            if (j - e) >= risk.max_holding_days:  # bars held = trading days
                 exit_price, exit_date, reason = c[j], idx[j], "time"; break
             if exits_cfg.trend_reversal_exit and not np.isnan(sma50[j]) and c[j] < sma50[j] and j > e:
                 exit_price, exit_date, reason = c[j], idx[j], "trend"; break
@@ -196,22 +196,25 @@ def run_backtest(
     trade_net_return: dict[int, float] = {}
     equity_curve: dict[pd.Timestamp, float] = {}
 
-    for day in panel.index:
-        # exits first (free up slots/cash)
-        for k in exits_by_date.get(day, []):
-            pos = open_positions.pop(k, None)
-            if pos is None:
-                continue
-            row = trades_df.loc[k]
-            buy_val = pos["qty"] * pos["entry_price"]
-            sell_val = pos["qty"] * row["exit_price"]
-            cb = compute_trade_costs(buy_val, sell_val, settings.costs)
-            net = sell_val - cb.total
-            cash += net
-            net_pnl = net - buy_val
-            trade_net_return[k] = net_pnl / pos["alloc"] * 100.0 if pos["alloc"] else 0.0
+    def _close(k: int) -> None:
+        nonlocal cash
+        pos = open_positions.pop(k, None)
+        if pos is None:
+            return
+        row = trades_df.loc[k]
+        buy_val = pos["qty"] * pos["entry_price"]
+        sell_val = pos["qty"] * row["exit_price"]
+        cb = compute_trade_costs(buy_val, sell_val, settings.costs)
+        net = sell_val - cb.total
+        cash += net
+        trade_net_return[k] = (net - buy_val) / pos["alloc"] * 100.0 if pos["alloc"] else 0.0
 
-        # entries
+    for day in panel.index:
+        # 1) exits for positions already open (free up slots/cash)
+        for k in exits_by_date.get(day, []):
+            _close(k)
+
+        # 2) entries
         for k in entries_by_date.get(day, []):
             if len(open_positions) >= max_pos:
                 continue
@@ -230,6 +233,13 @@ def run_backtest(
             qty = alloc / row["entry_price"]
             cash -= alloc
             open_positions[k] = {"qty": qty, "entry_price": row["entry_price"], "alloc": alloc}
+
+        # 3) same-bar trades: a position opened today whose exit is also today
+        #    (gap/intrabar stop or target on the entry bar). Without this pass
+        #    these positions would leak cash and never close.
+        for k in exits_by_date.get(day, []):
+            if k in open_positions:
+                _close(k)
 
         # mark-to-market
         mtm = cash + sum(p["qty"] * _row_price(panel, k, day, trades_df)

@@ -85,10 +85,12 @@ def sanity_checks(
         if h < max(o, c) or l > min(o, c) or h < l:
             issues.append(DataIssue(d, "ohlc_inconsistent", f"O={o} H={h} L={l} C={c}"))
         # Flat bar: all four equal (often a stale/placeholder bar).
-        if o == h == l == c:
+        is_flat = o == h == l == c
+        if is_flat:
             issues.append(DataIssue(d, "flat_bar", f"O=H=L=C={c}"))
-        # Volume sanity (allow 0 only on a flat bar / holiday-ish row).
-        if pd.isna(v) or v < 0:
+        # Volume sanity: negative/NaN is always bad; zero is only acceptable on a
+        # flat (no-trade) bar.
+        if pd.isna(v) or v < 0 or (v == 0 and not is_flat):
             issues.append(DataIssue(d, "bad_volume", f"volume={v}"))
 
     # Implausible close-to-close jumps.
@@ -143,8 +145,8 @@ class BhavcopyValidator:
         bc.columns = [str(c).strip().upper() for c in bc.columns]
         sym_col = next((c for c in ("SYMBOL", "TCKRSYMB") if c in bc.columns), None)
         if sym_col:
-            bc = bc[bc.get("SERIES", "EQ").astype(str).str.strip().isin(["EQ", ""])] \
-                if "SERIES" in bc.columns else bc
+            if "SERIES" in bc.columns:  # keep cash-segment (EQ) rows only
+                bc = bc[bc["SERIES"].astype(str).str.strip().isin(["EQ", ""])]
             bc = bc.set_index(bc[sym_col].astype(str).str.strip())
             self.cache.set(cache_key, bc)
         return bc

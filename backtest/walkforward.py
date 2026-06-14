@@ -85,9 +85,20 @@ def walk_forward(prices: dict[str, pd.DataFrame], settings) -> WalkForwardResult
         stitched = pd.concat(oos_returns).sort_index()
         stitched = stitched[~stitched.index.duplicated(keep="first")]
         combined_equity = (1.0 + stitched).cumprod() * settings.backtest.initial_capital
-        all_trades = pd.concat(
-            [w.result.trades for w in windows if len(w.result.trades)], ignore_index=True
-        ) if any(len(w.result.trades) for w in windows) else pd.DataFrame()
+        # Trade metrics must match the OOS equity: keep only each window's
+        # out-of-sample trades (entry on/after oos_start), then de-duplicate the
+        # boundary trades shared by adjacent windows.
+        oos_frames = []
+        for w in windows:
+            t = w.result.trades
+            if len(t):
+                oos_frames.append(t[t["entry_date"] >= w.oos_start])
+        if oos_frames:
+            all_trades = pd.concat(oos_frames, ignore_index=True)
+            all_trades = all_trades.drop_duplicates(subset=["symbol", "entry_date"]) \
+                                   .reset_index(drop=True)
+        else:
+            all_trades = pd.DataFrame()
         combined_metrics = compute_metrics(combined_equity, all_trades)
 
     return WalkForwardResult(

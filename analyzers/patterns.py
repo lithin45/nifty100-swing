@@ -96,8 +96,12 @@ def _double_top(close: np.ndarray, mins: np.ndarray, maxs: np.ndarray,
         return None
     neckline = min(close[m] for m in between)
     avg_top = (t1 + t2) / 2.0
+    if neckline >= avg_top * 0.97:  # need a real dip between the two tops
+        return None
     breakdown = close[-1] < neckline
-    conf = 0.5 + (0.25 if breakdown else 0.0)
+    # Forming (no breakdown) stays below default min_confidence so it doesn't
+    # flag a caution until the neckline actually breaks.
+    conf = 0.45 + (0.30 if breakdown else 0.0)
     return Pattern("double_top", False, min(conf, 0.9), None, neckline,
                    f"Double top near {avg_top:.1f} ({'breakdown' if breakdown else 'forming'})")
 
@@ -135,8 +139,10 @@ def _head_shoulders(close: np.ndarray, mins: np.ndarray, maxs: np.ndarray,
     if not troughs:
         return None
     neckline = float(np.mean([close[m] for m in troughs]))
+    if neckline >= h * 0.97:  # head must stand clearly above the neckline
+        return None
     breakdown = close[-1] < neckline
-    conf = 0.5 + (0.2 if breakdown else 0.0)
+    conf = 0.45 + (0.25 if breakdown else 0.0)  # forming stays below min_confidence
     return Pattern("head_shoulders", False, min(conf, 0.9), None, neckline,
                    f"Head & shoulders top, neckline {neckline:.1f}")
 

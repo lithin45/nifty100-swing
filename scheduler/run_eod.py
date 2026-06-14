@@ -120,7 +120,7 @@ def _build_stock_context(stock: Stock, mctx, providers, news_map) -> Optional[St
     )
 
 
-def process_entries(universe, mctx, providers, news_map, run_id, open_symbols) -> list[Signal]:
+def process_entries(universe, mctx, providers, news_map, run_id, open_symbols) -> tuple[list[Signal], int]:
     signals: list[Signal] = []
     n_eval = 0
     for stock in universe:
@@ -145,8 +145,7 @@ def process_entries(universe, mctx, providers, news_map, run_id, open_symbols) -
                 signals.append(sig)
         except Exception as exc:
             log.warning("entry processing failed for %s: %s", stock.symbol, exc)
-    process_entries.n_evaluated = n_eval  # type: ignore[attr-defined]
-    return signals
+    return signals, n_eval
 
 
 def process_exits(mctx, providers, run_id) -> list[Signal]:
@@ -227,14 +226,12 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
         exit_signals = process_exits(mctx, providers, run_id)
 
         open_symbols = db.get_open_symbols()  # refresh after exits
-        buy_signals = process_entries(universe, mctx, providers, news_map, run_id, open_symbols)
+        buy_signals, n_eval = process_entries(universe, mctx, providers, news_map, run_id, open_symbols)
 
         # Persist BUY signals + open positions.
         for sig in buy_signals:
             sid = db.save_signal(sig, run_id=run_id)
             db.open_position(sig, entry_signal_id=sid)
-
-        n_eval = getattr(process_entries, "n_evaluated", len(universe))
         freshness = {
             "price_source": settings.data.primary_price_source,
             "n_with_news": len(news_map),

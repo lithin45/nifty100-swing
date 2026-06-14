@@ -23,6 +23,7 @@ import pandas as pd
 
 from analyzers import indicators as I
 from analyzers.context import MarketContext
+from common.calendar_nse import trading_days_until
 from common.types import ExitReason
 
 
@@ -62,7 +63,8 @@ def evaluate_exit(
     last_close = _last(price_df["close"]) if len(price_df) else entry
     last_high = _last(price_df["high"]) if len(price_df) else last_close
     last_low = _last(price_df["low"]) if len(price_df) else last_close
-    holding_days = (mctx.as_of - position.entry_date).days
+    holding_days = (mctx.as_of - position.entry_date).days          # calendar (for display)
+    trading_held = trading_days_until(mctx.as_of, position.entry_date)  # NSE trading bars held
 
     # Ratchet the high-water close.
     new_high = max(float(position.highest_close or entry), last_close)
@@ -99,10 +101,10 @@ def evaluate_exit(
     if risk.trailing.enabled and new_stop > float(position.stop_loss) and last_low <= new_stop:
         return _decide(ExitReason.TRAILING_STOP, new_stop,
                        f"low {last_low:.1f} hit trailing stop {new_stop:.1f}")
-    # 4. time exit
-    if holding_days >= risk.max_holding_days:
+    # 4. time exit (compared in trading days, matching the "~1 trading month" config)
+    if trading_held >= risk.max_holding_days:
         return _decide(ExitReason.TIME_EXIT, last_close,
-                       f"held {holding_days}d >= max {risk.max_holding_days}d")
+                       f"held {trading_held} trading days >= max {risk.max_holding_days}")
     # 5. signal decay
     if composite_score is not None and composite_score < exits_cfg.signal_decay_threshold:
         return _decide(ExitReason.SIGNAL_DECAY, last_close,
