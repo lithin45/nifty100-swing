@@ -1,0 +1,26 @@
+# Tooling configuration only. The project uses a flat package layout and is
+# run from the repo root (not pip-installed), so there is no [build-system].
+# Runtime dependencies live in requirements.txt.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "UP"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "common", "config", "data_ingestion", "analyzers",
+    "scoring", "backtest", "alerting", "storage", "dashboard", "scheduler",
+]

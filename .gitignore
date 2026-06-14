@@ -1,0 +1,42 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+
+# ---- Data, caches, DB ----
+# The scheduled job writes the SQLite DB and caches here. The production DB
+# (data/swing.db) is force-added by the GitHub Action (see .github/workflows/eod.yml)
+# so it persists across runs; local/test DBs stay out of version control.
+data/*.db
+data/*.sqlite
+data/cache/
+*.log
+
+# ---- Backtest artefacts ----
+backtest/output/
+
+# ---- Secrets ----
+.streamlit/secrets.toml
+.env
+
+# ---- Models cache (FinBERT etc.) ----
+.cache/
+hf_cache/
+
+# ---- OS / IDE ----
+.DS_Store
+.idea/
+.vscode/
+.ipynb_checkpoints/
+
+# ---- Test / coverage ----
+.pytest_cache/
+.coverage
+htmlcov/

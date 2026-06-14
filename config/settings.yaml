@@ -1,0 +1,262 @@
+# =====================================================================
+#  Nifty 100 Swing-Trading System — master configuration
+# =====================================================================
+#  EVERYTHING is tunable here. No rupee amounts are hardcoded in code;
+#  all rules are percentage-based and capital-agnostic. Edit, save, rerun.
+#  Validated against config/schema.py (pydantic) on load.
+# ---------------------------------------------------------------------
+
+project:
+  name: "Nifty100 Swing System"
+  timezone: "Asia/Kolkata"
+  base_currency: "INR"
+
+# Path (relative to config/) of the universe file.
+universe_csv: "nifty100.csv"
+
+# ---------------------------------------------------------------------
+# DATA: where prices come from and how far back to load
+# ---------------------------------------------------------------------
+data:
+  primary_price_source: "yfinance"   # yfinance | upstox | dhan
+  validate_with_bhavcopy: true       # cross-check OHLCV vs NSE bhavcopy
+  history_days: 800                  # ~3yrs of bars (needed for 200-DMA)
+  cache_ttl_hours: 20                # reuse cached bars within a trading day
+  adjust_ohlc: true                  # split/dividend adjusted closes
+
+# ---------------------------------------------------------------------
+# STAGE 1 — HARD GATES  (ALL must pass or NO signal is generated)
+# ---------------------------------------------------------------------
+gates:
+  liquidity:
+    enabled: true
+    min_avg_turnover_inr: 250000000   # ₹25 crore avg daily turnover
+    lookback_days: 20
+  trend:
+    enabled: true
+    require_above_sma: 200            # price must be above 200-day SMA…
+    allow_sector_rs_override: true    # …unless its sector is outperforming
+  event:
+    enabled: true
+    no_entry_days_before_earnings: 5  # avoid entries just before results
+    block_fno_ban: true               # skip stocks in F&O ban period
+    block_circuit: true               # skip stocks hitting circuit limits
+  market_regime:
+    enabled: true
+    vix_ceiling: 22.0                 # no new entries if India VIX above this
+    require_index_above_sma: 200      # Nifty 100 must be above its 200-DMA
+
+# ---------------------------------------------------------------------
+# STAGE 2 — WEIGHTED COMPOSITE SCORE (0–100)
+# ---------------------------------------------------------------------
+scoring:
+  entry_threshold: 65.0   # BUY if all gates pass AND composite >= this
+  exit_threshold: 45.0    # deteriorating-signal EXIT if composite < this
+  # Weights are relative — they are normalised to sum to 1 at runtime.
+  weights:
+    technical: 0.35
+    sector: 0.15
+    fii_dii: 0.10
+    sentiment: 0.10
+    fundamental: 0.10
+    event: 0.08
+    macro: 0.07
+    vix: 0.05
+  # Penalise contradictory signals (e.g. strong chart but bad news).
+  conflict_penalty:
+    enabled: true
+    strong_technical_threshold: 0.70    # technical sub-score (0-1)
+    negative_sentiment_threshold: -0.30 # raw sentiment (-1..+1)
+    penalty_multiplier: 0.85            # multiply composite by this on conflict
+    event_risk_penalty_multiplier: 0.90 # extra haircut if event risk present
+
+# ---------------------------------------------------------------------
+# TECHNICAL ANALYSIS parameters + intra-analyzer sub-weights
+# ---------------------------------------------------------------------
+technical:
+  sma_periods: [20, 50, 200]
+  ema_periods: [20, 50]
+  rsi_period: 14
+  rsi_overbought: 70.0
+  rsi_oversold: 30.0
+  macd: {fast: 12, slow: 26, signal: 9}
+  stoch: {k: 14, d: 3, smooth: 3}
+  bollinger: {period: 20, std: 2.0}
+  atr_period: 14
+  breakout:
+    lookback_high: 20      # close > N-day high …
+    volume_multiple: 1.5   # … AND volume > 1.5x average
+    volume_avg_period: 20
+  pivots:
+    window: 5              # scipy argrelextrema order (pivot sensitivity)
+  weights:                # how the technical sub-checks combine (sum ~1)
+    trend: 0.30
+    momentum: 0.25
+    breakout: 0.20
+    volume: 0.10
+    patterns: 0.15
+
+# ---------------------------------------------------------------------
+# CHART PATTERNS
+# ---------------------------------------------------------------------
+patterns:
+  min_confidence: 0.5     # ignore pattern detections weaker than this
+  lookback: 120           # bars scanned for patterns
+
+# ---------------------------------------------------------------------
+# RISK & POSITION SIZING (all % based, capital-agnostic)
+# ---------------------------------------------------------------------
+risk:
+  atr_stop_multiple: 2.0    # stop = entry - k*ATR  (k here)
+  rr_target_multiple: 2.0   # target = entry + RR*risk  (2R default)
+  use_pattern_target: true  # prefer pattern measured-move target if higher
+  max_holding_days: 22      # ~1 trading month -> time-based exit
+  risk_per_trade_pct: 1.0   # capital risked per trade -> drives size %
+  max_position_pct: 10.0    # never size a single position above this
+  trailing:
+    enabled: true
+    type: "atr"             # atr | percent
+    atr_multiple: 2.5
+    percent: 8.0
+    activate_at_r: 1.0      # only start trailing after +1R of profit
+
+# ---------------------------------------------------------------------
+# EXIT logic for open positions
+# ---------------------------------------------------------------------
+exits:
+  signal_decay_threshold: 45.0  # exit if composite drops below this
+  macd_reversal_exit: true      # exit on bearish MACD cross
+  trend_reversal_exit: true     # exit on close below trend SMA
+  trend_reversal_sma: 50
+  sector_rollover_exit: true    # exit if the stock's sector turns negative RS
+
+# ---------------------------------------------------------------------
+# TRANSACTION COSTS (Indian round-trip) — used by the backtest
+# ---------------------------------------------------------------------
+costs:
+  segment: "delivery"          # delivery | intraday
+  brokerage:
+    delivery_pct: 0.0          # most discount brokers: free delivery
+    delivery_flat: 0.0
+    intraday_pct: 0.03         # ₹20 or 0.03% whichever is lower, per leg
+    intraday_flat: 20.0
+  stt:
+    delivery_buy_pct: 0.1      # 0.1% buy + 0.1% sell (delivery)
+    delivery_sell_pct: 0.1
+    intraday_sell_pct: 0.025
+  exchange_txn_pct: 0.00297    # NSE equity transaction charge
+  sebi_pct: 0.0001             # SEBI turnover fee
+  stamp_duty_buy_pct: 0.015    # stamp duty on buy
+  gst_pct: 18.0                # GST on (brokerage + txn + sebi)
+  slippage_pct: 0.05           # assumed slippage per leg
+
+# ---------------------------------------------------------------------
+# BACKTEST
+# ---------------------------------------------------------------------
+backtest:
+  start: "2019-01-01"
+  end: null                    # null -> most recent available
+  initial_capital: 1000000     # only for absolute P&L display; rules are %-based
+  max_open_positions: 10
+  execution: "next_open"       # decide on close, execute next open (no look-ahead)
+  walkforward:
+    enabled: true
+    in_sample_months: 18
+    out_sample_months: 6
+    step_months: 6
+
+# ---------------------------------------------------------------------
+# SENTIMENT (FinBERT)
+# ---------------------------------------------------------------------
+sentiment:
+  model: "ProsusAI/finbert"
+  max_headlines_per_stock: 15
+  recency_days: 7
+  fallback: "lexicon"          # used if transformers/torch unavailable
+
+# ---------------------------------------------------------------------
+# NEWS (RSS feeds, headline -> stock matching)
+# ---------------------------------------------------------------------
+news:
+  rss_feeds:
+    - "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"
+    - "https://www.moneycontrol.com/rss/marketreports.xml"
+    - "https://www.moneycontrol.com/rss/business.xml"
+    - "https://www.business-standard.com/rss/markets-106.rss"
+    - "https://www.livemint.com/rss/markets"
+    - "https://pulse.zerodha.com/feed.php"
+  max_age_days: 7
+
+# ---------------------------------------------------------------------
+# FII / DII daily flows (NSE cash market, ₹ crore)
+# ---------------------------------------------------------------------
+fii_dii:
+  lookback_days: 5
+  strong_inflow_cr: 2000.0
+  strong_outflow_cr: -2000.0
+
+# ---------------------------------------------------------------------
+# MACRO factors
+# ---------------------------------------------------------------------
+macro:
+  symbols:
+    usdinr: "INR=X"
+    crude: "CL=F"
+    sp500: "^GSPC"
+    nasdaq: "^IXIC"
+    vix: "^INDIAVIX"
+  rbi_repo_rate: 6.50          # update manually on RBI MPC days
+  weights:
+    usdinr: 0.30
+    crude: 0.20
+    us_indices: 0.30
+    rates: 0.20
+  trend_lookback_days: 21
+
+# ---------------------------------------------------------------------
+# SECTORS — relative strength vs benchmark
+# ---------------------------------------------------------------------
+sectors:
+  rs_lookback_days: 63         # ~3 months
+  benchmark: "^CNX100"         # Nifty 100 (falls back to ^NSEI if unavailable)
+  indices:
+    "Nifty IT": "^CNXIT"
+    "Nifty Bank": "^NSEBANK"
+    "Nifty Pharma": "^CNXPHARMA"
+    "Nifty Auto": "^CNXAUTO"
+    "Nifty FMCG": "^CNXFMCG"
+    "Nifty Metal": "^CNXMETAL"
+    "Nifty Energy": "^CNXENERGY"
+    "Nifty Realty": "^CNXREALTY"
+    "Nifty Financial Services": "NIFTY_FIN_SERVICE.NS"
+    "Nifty Media": "^CNXMEDIA"
+
+# ---------------------------------------------------------------------
+# ALERTS
+# ---------------------------------------------------------------------
+alerts:
+  telegram:
+    enabled: true
+    parse_mode: "Markdown"
+    max_signals_per_run: 15
+    disable_web_page_preview: true
+  include_position_size: true
+  top_reasons: 3
+
+# ---------------------------------------------------------------------
+# DASHBOARD
+# ---------------------------------------------------------------------
+dashboard:
+  title: "Nifty 100 Swing Signals"
+  refresh_minutes: 30
+  show_terms_glossary: true
+
+logging:
+  level: "INFO"
+
+storage:
+  db_path: null                # null -> data/swing.db
+
+# Optional: extra NSE holidays not yet in common/calendar_nse.py
+# calendar:
+#   extra_holidays: ["2026-11-09"]

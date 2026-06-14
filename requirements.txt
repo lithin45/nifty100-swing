@@ -1,0 +1,59 @@
+# =====================================================================
+# Nifty 100 Swing-Trading Opportunity System — Python 3.12
+# =====================================================================
+# Install everything:           pip install -r requirements.txt
+# Minimal core (no ML/backtest): see the "CORE" block — enough to run the
+# scoring engine and unit tests. Heavy / optional deps are grouped below
+# and every heavy import in the codebase degrades gracefully if missing.
+# ---------------------------------------------------------------------
+
+# ---- CORE (required) ----
+pandas>=2.1
+numpy>=1.26
+scipy>=1.11
+PyYAML>=6.0
+pydantic>=2.6
+python-dateutil>=2.8
+requests>=2.31
+SQLAlchemy>=2.0
+
+# ---- Technical analysis ----
+# Indicators are implemented natively in analyzers/indicators.py (no native
+# build needed). pandas-ta is optional and only used if importable.
+# NOTE: classic pandas-ta breaks on numpy>=2 (uses numpy.NaN); prefer the
+# maintained fork `pandas-ta-classic` if you want the pandas-ta path.
+pandas-ta-classic>=0.3.14b ; python_version < "4.0"
+# TA-Lib  # optional, requires the TA-Lib C library installed first
+
+# ---- Data sources ----
+yfinance>=0.2.40
+nsepython>=2.9          # NSE indices, FII/DII, corporate info
+jugaad-data>=0.26       # NSE bhavcopy (validation layer)
+feedparser>=6.0         # RSS news
+beautifulsoup4>=4.12    # screener.in / tickertape scraping
+lxml>=5.0
+
+# ---- Sentiment (FinBERT) — HEAVY / optional ----
+# If absent, analyzers/sentiment.py falls back to a finance lexicon scorer.
+transformers>=4.40
+torch>=2.2
+
+# ---- Backtesting & metrics — HEAVY / optional ----
+vectorbt>=0.26
+quantstats>=0.0.62
+backtesting>=0.3.3       # simpler single-strategy path
+
+# ---- Alerting ----
+python-telegram-bot>=21.0   # optional; raw Bot API via requests also works
+
+# ---- Dashboard ----
+streamlit>=1.33
+streamlit-authenticator>=0.3.2
+plotly>=5.20
+mplfinance>=0.12.10b0
+
+# ---- Scheduling (local only; CI uses GitHub Actions cron) ----
+APScheduler>=3.10
+
+# ---- Dev / test ----
+pytest>=8.0

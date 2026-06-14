@@ -1,0 +1,8 @@
+symbol,date
+# OPTIONAL manual results calendar used by the event gate (no entry within N
+# trading days of results). The system also tries NSE automatically, but this
+# file is the reliable source for unattended GitHub Actions runs.
+# Fill in upcoming results dates (YYYY-MM-DD), e.g.:
+# RELIANCE,2026-07-18
+# TCS,2026-07-10
+# INFY,2026-07-16

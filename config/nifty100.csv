@@ -1,0 +1,108 @@
+symbol,isin,upstox_key,sector,name
+# Nifty 100 constituents. Cols: symbol, ISIN, Upstox instrument key, sector, name.
+# yfinance path needs only `symbol` (used as <symbol>.NS). ISIN/upstox_key are
+# only required for the optional Upstox & bhavcopy paths. Blank upstox_key is
+# auto-derived as "NSE_EQ|<ISIN>". REFRESH this list with scripts/build_universe.py
+# (constituents rebalance ~semi-annually; ISINs below are for confident large-caps).
+RELIANCE,INE002A01018,,Oil & Gas,Reliance Industries
+TCS,INE467B01029,,IT,Tata Consultancy Services
+HDFCBANK,INE040A01034,,Bank,HDFC Bank
+ICICIBANK,INE090A01021,,Bank,ICICI Bank
+INFY,INE009A01021,,IT,Infosys
+HINDUNILVR,INE030A01027,,FMCG,Hindustan Unilever
+ITC,INE154A01025,,FMCG,ITC
+SBIN,INE062A01020,,Bank,State Bank of India
+BHARTIARTL,INE397D01024,,Telecom,Bharti Airtel
+BAJFINANCE,INE296A01024,,Financial Services,Bajaj Finance
+KOTAKBANK,INE237A01028,,Bank,Kotak Mahindra Bank
+LT,INE018A01030,,Infrastructure,Larsen & Toubro
+HCLTECH,INE860A01027,,IT,HCL Technologies
+AXISBANK,INE238A01034,,Bank,Axis Bank
+MARUTI,INE585B01010,,Auto,Maruti Suzuki
+SUNPHARMA,INE044A01036,,Pharma,Sun Pharmaceutical
+TITAN,INE280A01028,,Consumer Durables,Titan Company
+ASIANPAINT,INE021A01026,,Consumer Durables,Asian Paints
+ULTRACEMCO,INE481G01011,,Cement,UltraTech Cement
+WIPRO,INE075A01022,,IT,Wipro
+NTPC,INE733E01010,,Power,NTPC
+POWERGRID,INE752E01010,,Power,Power Grid Corporation
+ONGC,INE213A01029,,Oil & Gas,Oil & Natural Gas Corp
+TATAMOTORS,INE155A01022,,Auto,Tata Motors
+TATASTEEL,INE081A01020,,Metal,Tata Steel
+JSWSTEEL,INE019A01038,,Metal,JSW Steel
+M&M,INE101A01026,,Auto,Mahindra & Mahindra
+COALINDIA,INE522F01014,,Metal,Coal India
+BAJAJFINSV,INE918I01026,,Financial Services,Bajaj Finserv
+NESTLEIND,,,FMCG,Nestle India
+HDFCLIFE,,,Insurance,HDFC Life Insurance
+SBILIFE,,,Insurance,SBI Life Insurance
+TECHM,,,IT,Tech Mahindra
+GRASIM,,,Cement,Grasim Industries
+HINDALCO,,,Metal,Hindalco Industries
+DRREDDY,,,Pharma,Dr Reddy's Laboratories
+CIPLA,,,Pharma,Cipla
+BAJAJ-AUTO,,,Auto,Bajaj Auto
+EICHERMOT,,,Auto,Eicher Motors
+BRITANNIA,,,FMCG,Britannia Industries
+APOLLOHOSP,,,Healthcare,Apollo Hospitals
+DIVISLAB,,,Pharma,Divi's Laboratories
+HEROMOTOCO,,,Auto,Hero MotoCorp
+INDUSINDBK,,,Bank,IndusInd Bank
+TATACONSUM,,,FMCG,Tata Consumer Products
+BPCL,,,Oil & Gas,Bharat Petroleum
+SHRIRAMFIN,,,Financial Services,Shriram Finance
+LTIM,,,IT,LTIMindtree
+TRENT,,,Consumer Durables,Trent
+ADANIENT,,,Diversified,Adani Enterprises
+ADANIPORTS,,,Infrastructure,Adani Ports & SEZ
+JIOFIN,,,Financial Services,Jio Financial Services
+ABB,,,Infrastructure,ABB India
+ADANIGREEN,,,Power,Adani Green Energy
+ADANIPOWER,,,Power,Adani Power
+ADANIENSOL,,,Power,Adani Energy Solutions
+AMBUJACEM,,,Cement,Ambuja Cements
+DMART,,,Consumer Durables,Avenue Supermarts
+BAJAJHLDNG,,,Financial Services,Bajaj Holdings
+BANKBARODA,,,PSU Bank,Bank of Baroda
+BERGEPAINT,,,Consumer Durables,Berger Paints
+BEL,,,Infrastructure,Bharat Electronics
+BOSCHLTD,,,Auto,Bosch
+CANBK,,,PSU Bank,Canara Bank
+CHOLAFIN,,,Financial Services,Cholamandalam Investment
+COLPAL,,,FMCG,Colgate-Palmolive India
+DABUR,,,FMCG,Dabur India
+DLF,,,Realty,DLF
+GAIL,,,Oil & Gas,GAIL India
+GODREJCP,,,FMCG,Godrej Consumer Products
+HAVELLS,,,Consumer Durables,Havells India
+HAL,,,Infrastructure,Hindustan Aeronautics
+ICICIGI,,,Insurance,ICICI Lombard General Insurance
+ICICIPRULI,,,Insurance,ICICI Prudential Life
+IOC,,,Oil & Gas,Indian Oil Corporation
+INDIGO,,,Aviation,InterGlobe Aviation
+IRFC,,,Financial Services,Indian Railway Finance Corp
+JINDALSTEL,,,Metal,Jindal Steel & Power
+LICI,,,Insurance,Life Insurance Corp of India
+MOTHERSON,,,Auto,Samvardhana Motherson
+NAUKRI,,,IT,Info Edge India
+PIDILITIND,,,Chemicals,Pidilite Industries
+PNB,,,PSU Bank,Punjab National Bank
+PFC,,,Financial Services,Power Finance Corporation
+RECLTD,,,Financial Services,REC
+SIEMENS,,,Infrastructure,Siemens
+SHREECEM,,,Cement,Shree Cement
+TATAPOWER,,,Power,Tata Power
+TORNTPHARM,,,Pharma,Torrent Pharmaceuticals
+TVSMOTOR,,,Auto,TVS Motor Company
+VEDL,,,Metal,Vedanta
+VBL,,,FMCG,Varun Beverages
+ZYDUSLIFE,,,Pharma,Zydus Lifesciences
+MANKIND,,,Pharma,Mankind Pharma
+MAXHEALTH,,,Healthcare,Max Healthcare Institute
+INDHOTEL,,,Consumer Durables,Indian Hotels Company
+NHPC,,,Power,NHPC
+LODHA,,,Realty,Macrotech Developers
+UNITDSPR,,,FMCG,United Spirits
+SOLARINDS,,,Chemicals,Solar Industries India
+ETERNAL,,,Retail,Eternal (Zomato)
+SWIGGY,,,Retail,Swiggy
