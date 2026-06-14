@@ -127,13 +127,17 @@ with tab_paper:
 # --------------------------------------------------------------------------- #
 with tab_charts:
     st.subheader("Annotated price chart")
-    universe_syms = sorted({s.symbol for s in db.signals_for_date(
+    from config.loader import load_universe
+
+    all_syms = sorted(s.symbol for s in load_universe())
+    # Surface today's signals + open positions at the top for convenience,
+    # then list the rest of the Nifty 100 so you can chart ANY stock.
+    priority = sorted({s.symbol for s in db.signals_for_date(
         (run.trading_date if run else dt.date.today()))} |
         {p.symbol for p in db.get_open_positions()})
-    if not universe_syms:
-        from config.loader import load_universe
-
-        universe_syms = [s.symbol for s in load_universe()[:25]]
+    universe_syms = priority + [s for s in all_syms if s not in priority]
+    st.caption(f"All {len(all_syms)} Nifty 100 stocks available"
+               + (f" · {len(priority)} with signals/positions shown first" if priority else ""))
     symbol = st.selectbox("Choose a stock", universe_syms)
     if symbol:
         try:
