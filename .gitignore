@@ -24,6 +24,8 @@ backtest/output/
 
 # ---- Secrets ----
 .streamlit/secrets.toml
+.streamlit/secrets.toml.*
+!.streamlit/secrets.toml.example
 .env
 
 # ---- Models cache (FinBERT etc.) ----
