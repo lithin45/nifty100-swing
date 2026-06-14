@@ -231,3 +231,32 @@ def candlestick_chart(df: pd.DataFrame, *, title: str = "",
     fig.update_layout(title=title, height=520, xaxis_rangeslider_visible=False,
                       margin=dict(l=10, r=10, t=40, b=10), legend=dict(orientation="h"))
     return fig
+
+
+def watchlist_table(items: list) -> None:
+    """'Almost there' stocks — close to firing a BUY. Keep an eye on these."""
+    st.caption("Stocks **close** to firing a BUY — either scoring just under the 65 cutoff, "
+               "or strong but blocked by a single safety gate. Not buys yet — watch them.")
+    if not items:
+        st.info("Nothing on the watchlist right now. It fills in after an evening scan finds "
+                "stocks scoring 55–64 (or one gate away). In a falling market it stays empty "
+                "by design — the system waits for conditions to improve.")
+        return
+    rows = []
+    for w in items:
+        rows.append({
+            "Stock": w.symbol,
+            "Sector": w.sector,
+            "Score": round(w.composite, 1),
+            "Needs +": round(w.distance, 1),
+            "Status": "Near miss" if w.gates_passed else f"Blocked: {w.blocking_gate}",
+            "Why it's close": "; ".join((w.reasons or [])[:2]),
+        })
+    df = pd.DataFrame(rows)
+    st.dataframe(
+        df, use_container_width=True, hide_index=True,
+        column_config={
+            "Score": st.column_config.NumberColumn(format="%.1f", help="0–100 conviction; 65 = BUY"),
+            "Needs +": st.column_config.NumberColumn("Needs +", help="Points below the 65 BUY threshold"),
+        },
+    )

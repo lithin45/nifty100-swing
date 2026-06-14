@@ -22,6 +22,7 @@ from storage.models import (
     Run,
     Signal,
     SubScoreRecord,
+    WatchItem,
     utcnow,
 )
 
@@ -190,6 +191,34 @@ def save_gate_records(
                     reason=r.reason,
                 )
             )
+
+
+def save_watchlist(run_id: Optional[int], items: list[dict], db_path: Optional[str] = None) -> None:
+    """Persist 'almost there' watch items for a run."""
+    with session_scope(db_path) as s:
+        for it in items:
+            s.add(WatchItem(
+                run_id=run_id, symbol=it["symbol"], sector=it.get("sector", ""),
+                as_of=it["as_of"], composite=float(it["composite"]),
+                distance=float(it.get("distance", 0.0)),
+                gates_passed=bool(it.get("gates_passed", False)),
+                blocking_gate=it.get("blocking_gate"),
+                status=it.get("status", "near_miss"),
+                reasons=list(it.get("reasons", [])),
+            ))
+
+
+def latest_watchlist(db_path: Optional[str] = None) -> list[WatchItem]:
+    """Watch items from the most recent run that produced any (skips premarket runs)."""
+    with session_scope(db_path) as s:
+        latest = s.scalars(
+            select(WatchItem.as_of).order_by(WatchItem.created_at.desc()).limit(1)
+        ).first()
+        if latest is None:
+            return []
+        return list(s.scalars(
+            select(WatchItem).where(WatchItem.as_of == latest).order_by(WatchItem.composite.desc())
+        ))
 
 
 def recent_signals(limit: int = 50, db_path: Optional[str] = None) -> list[Signal]:

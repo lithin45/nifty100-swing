@@ -105,10 +105,15 @@ def format_run_header(as_of, n_buy: int, n_exit: int, regime: dict | None = None
     return "\n".join(parts)
 
 
-def format_morning_brief(as_of, cues: str, reviews: list[dict]) -> str:
-    """Pre-open 'morning brief': overnight market cues + a re-check of active
-    positions/signals against fresh news & sentiment. No new buy ideas (NSE
-    prices don't update until the 9:15 open)."""
+def _field(obj, key):
+    """Read a field from either a dict or an ORM object."""
+    return obj.get(key) if isinstance(obj, dict) else getattr(obj, key, None)
+
+
+def format_morning_brief(as_of, cues: str, reviews: list, watch: list | None = None) -> str:
+    """Pre-open 'morning brief': overnight market cues, a re-check of active
+    positions/signals against fresh news & sentiment, and the 'almost there'
+    watchlist. No new buy ideas (NSE prices don't update until the 9:15 open)."""
     lines = [f"🌅 *Morning brief — {as_of}*"]
     if cues:
         lines.append(f"Overnight cues: {_esc(cues)}")
@@ -125,6 +130,12 @@ def format_morning_brief(as_of, cues: str, reviews: list[dict]) -> str:
             lines.append("\n⚠️ *Reconsider before the open:*")
             for r in warn:
                 lines.append(f"• {_esc(r['symbol'])} — {_esc(r.get('note', ''))}")
+    if watch:
+        lines.append("\n👀 *Watchlist (close to triggering):*")
+        for w in watch[:8]:
+            blocked = _field(w, "gates_passed") is False
+            tag = f" · blocked: {_field(w, 'blocking_gate')}" if blocked else ""
+            lines.append(f"• {_esc(_field(w, 'symbol'))} — {_field(w, 'composite'):.0f}/100{tag}")
     lines += ["", "_Pre-open check — no new buy signals (NSE prices update after 9:15). "
               "Signal-only; execute manually._"]
     return "\n".join(lines)

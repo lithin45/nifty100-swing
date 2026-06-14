@@ -48,7 +48,7 @@ from data_ingestion.vix import get_vix_provider
 from scoring.composite import compute_composite, run_analyzers
 from scoring.exits import evaluate_exit
 from scoring.gates import run_gates
-from scoring.signal import generate_signal
+from scoring.signal import generate_signal, top_reasons
 from storage import db
 
 log = get_logger(__name__)
@@ -120,8 +120,30 @@ def _build_stock_context(stock: Stock, mctx, providers, news_map) -> Optional[St
     )
 
 
-def process_entries(universe, mctx, providers, news_map, run_id, open_symbols) -> tuple[list[Signal], int]:
+def _make_watch_item(stock, mctx, composite, failed) -> dict:
+    entry = mctx.settings.scoring.entry_threshold
+    return {
+        "symbol": stock.symbol, "sector": stock.sector, "as_of": mctx.as_of,
+        "composite": round(composite.score, 2),
+        "distance": round(max(0.0, entry - composite.score), 2),
+        "gates_passed": len(failed) == 0,
+        "blocking_gate": failed[0].name if failed else None,
+        "status": "near_miss" if not failed else "blocked",
+        "reasons": top_reasons(composite, mctx.settings.alerts.top_reasons),
+    }
+
+
+def process_entries(universe, mctx, providers, news_map, run_id, open_symbols):
+    """Returns (buy_signals, watch_items, n_evaluated).
+
+    A stock is scored if it passes all gates, or (for the watchlist) fails exactly
+    one. It becomes a BUY if gates pass and composite >= entry; otherwise, if its
+    composite >= watchlist.composite_min, it's captured as a near-miss watch item.
+    """
+    settings = mctx.settings
+    wl = settings.watchlist
     signals: list[Signal] = []
+    watch: list[dict] = []
     n_eval = 0
     for stock in universe:
         try:
@@ -131,21 +153,29 @@ def process_entries(universe, mctx, providers, news_map, run_id, open_symbols) -
             n_eval += 1
             gate_report = run_gates(sctx, mctx)
             db.save_gate_records(run_id, stock.symbol, mctx.as_of, gate_report)
+            failed = gate_report.failed
 
-            if not gate_report.passed:
+            score_it = len(failed) == 0 or (wl.enabled and wl.include_one_gate_away and len(failed) == 1)
+            if not score_it or stock.symbol in open_symbols:
                 continue
-            if stock.symbol in open_symbols:
-                continue  # already holding — exits handle it
 
             subs = run_analyzers(sctx, mctx)
-            composite = compute_composite(subs, mctx.settings)
-            sig = generate_signal(sctx, mctx, composite, gate_report)
-            if sig is not None:
-                sig.details["regime"] = mctx.regime
-                signals.append(sig)
+            composite = compute_composite(subs, settings)
+
+            if len(failed) == 0:
+                sig = generate_signal(sctx, mctx, composite, gate_report)
+                if sig is not None:
+                    sig.details["regime"] = mctx.regime
+                    signals.append(sig)
+                    continue
+            # Not a BUY -> consider for the "almost there" watchlist.
+            if wl.enabled and composite.score >= wl.composite_min:
+                watch.append(_make_watch_item(stock, mctx, composite, failed))
         except Exception as exc:
             log.warning("entry processing failed for %s: %s", stock.symbol, exc)
-    return signals, n_eval
+
+    watch.sort(key=lambda w: w["composite"], reverse=True)
+    return signals, watch[: wl.max_items], n_eval
 
 
 def process_exits(mctx, providers, run_id) -> list[Signal]:
@@ -226,22 +256,29 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
         exit_signals = process_exits(mctx, providers, run_id)
 
         open_symbols = db.get_open_symbols()  # refresh after exits
-        buy_signals, n_eval = process_entries(universe, mctx, providers, news_map, run_id, open_symbols)
+        buy_signals, watch_items, n_eval = process_entries(
+            universe, mctx, providers, news_map, run_id, open_symbols)
 
         # Persist BUY signals + open positions.
         for sig in buy_signals:
             sid = db.save_signal(sig, run_id=run_id)
             db.open_position(sig, entry_signal_id=sid)
+
+        # Persist the "almost there" watchlist.
+        if watch_items:
+            db.save_watchlist(run_id, watch_items)
         freshness = {
             "price_source": settings.data.primary_price_source,
             "n_with_news": len(news_map),
             "n_headlines": len(headlines),
             "n_evaluated": n_eval,
+            "n_watchlist": len(watch_items),
         }
         db.finish_run(run_id, status="success", market_regime=regime,
                       data_freshness=freshness, n_evaluated=n_eval)
 
-        log.info("Generated %d BUY, %d EXIT", len(buy_signals), len(exit_signals))
+        log.info("Generated %d BUY, %d EXIT, %d watchlist", len(buy_signals),
+                 len(exit_signals), len(watch_items))
 
         if send:
             from alerting.telegram import get_notifier
@@ -251,7 +288,7 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
             log.info("Telegram: %d message(s) sent", sent)
 
         return {"as_of": str(as_of), "buy": len(buy_signals), "exit": len(exit_signals),
-                "evaluated": n_eval, "regime": regime}
+                "watchlist": len(watch_items), "evaluated": n_eval, "regime": regime}
     except Exception as exc:
         log.exception("EOD run failed")
         db.finish_run(run_id, status="error", error=str(exc))
@@ -344,12 +381,14 @@ def run_premarket(date_str: Optional[str] = None, send: bool = True,
                       n_evaluated=len(positions))
         log.info("Pre-market: reviewed %d position(s). Cues: %s", len(reviews), cues)
 
+        watch = db.latest_watchlist()
         if send:
             from alerting.formatter import format_morning_brief
             from alerting.telegram import get_notifier
 
-            get_notifier(settings).send_message(format_morning_brief(as_of, cues, reviews))
-        return {"as_of": str(as_of), "mode": "premarket", "reviewed": len(reviews), "cues": cues}
+            get_notifier(settings).send_message(format_morning_brief(as_of, cues, reviews, watch))
+        return {"as_of": str(as_of), "mode": "premarket", "reviewed": len(reviews),
+                "watchlist": len(watch), "cues": cues}
     except Exception as exc:
         log.exception("Pre-market run failed")
         db.finish_run(run_id, status="error", error=str(exc))

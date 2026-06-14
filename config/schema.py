@@ -411,6 +411,13 @@ class StorageCfg(_Base):
     db_path: Optional[str] = None  # None -> data/swing.db
 
 
+class WatchlistCfg(_Base):
+    enabled: bool = True
+    composite_min: float = 55.0      # capture near-misses scoring at least this (and < entry)
+    max_items: int = 25              # cap stored/displayed watch items
+    include_one_gate_away: bool = True  # also watch high-score stocks failing exactly one gate
+
+
 # --------------------------------------------------------------------------- #
 # Root                                                                        #
 # --------------------------------------------------------------------------- #
@@ -435,3 +442,4 @@ class Settings(_Base):
     dashboard: DashboardCfg = Field(default_factory=DashboardCfg)
     logging: LoggingCfg = Field(default_factory=LoggingCfg)
     storage: StorageCfg = Field(default_factory=StorageCfg)
+    watchlist: WatchlistCfg = Field(default_factory=WatchlistCfg)

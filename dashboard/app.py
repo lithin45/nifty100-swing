@@ -29,6 +29,7 @@ from dashboard.components import (
     positions_table,
     regime_banner,
     signal_card,
+    watchlist_table,
 )
 from storage import db
 from storage.models import GateRecord
@@ -52,8 +53,9 @@ regime_banner(run)
 if settings.dashboard.show_terms_glossary:
     glossary_expander()
 
-tab_signals, tab_positions, tab_paper, tab_charts, tab_status = st.tabs(
-    ["🟢 Today's Signals", "💼 Open Positions", "📒 Paper Trading", "📊 Charts", "⚙️ System Status"]
+tab_signals, tab_watch, tab_positions, tab_paper, tab_charts, tab_status = st.tabs(
+    ["🟢 Today's Signals", "👀 Watchlist", "💼 Open Positions", "📒 Paper Trading",
+     "📊 Charts", "⚙️ System Status"]
 )
 
 # --------------------------------------------------------------------------- #
@@ -77,6 +79,13 @@ with tab_signals:
             pnl = (s.details or {}).get("pnl_pct")
             extra = f" · P&L {pnl:+.1f}%" if pnl is not None else ""
             st.markdown(f"🔴 **{s.symbol}** ({s.sector}) — {s.exit_reason}{extra}")
+
+# --------------------------------------------------------------------------- #
+# Watchlist                                                                   #
+# --------------------------------------------------------------------------- #
+with tab_watch:
+    st.subheader("👀 Watchlist — close to triggering")
+    watchlist_table(db.latest_watchlist())
 
 # --------------------------------------------------------------------------- #
 # Open positions                                                              #

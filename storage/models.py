@@ -51,6 +51,9 @@ class Run(Base):
     gate_records: Mapped[list["GateRecord"]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
+    watch_items: Mapped[list["WatchItem"]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
 
 
 class Signal(Base):
@@ -114,6 +117,27 @@ class GateRecord(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
 
     run: Mapped["Run"] = relationship(back_populates="gate_records")
+
+
+class WatchItem(Base):
+    """An 'almost there' stock — near the entry threshold or one gate away."""
+
+    __tablename__ = "watchlist"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("runs.id"), nullable=True)
+    symbol: Mapped[str] = mapped_column(String(32), index=True)
+    sector: Mapped[str] = mapped_column(String(48), default="")
+    as_of: Mapped[dt.date] = mapped_column(Date, index=True)
+    composite: Mapped[float] = mapped_column(Float, default=0.0)
+    distance: Mapped[float] = mapped_column(Float, default=0.0)  # entry_threshold - composite
+    gates_passed: Mapped[bool] = mapped_column(Boolean, default=False)
+    blocking_gate: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="near_miss")  # near_miss | blocked
+    reasons: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=utcnow)
+
+    run: Mapped["Run"] = relationship(back_populates="watch_items")
 
 
 class Position(Base):
