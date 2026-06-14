@@ -59,15 +59,23 @@ def _entry_signal(df: pd.DataFrame, settings) -> pd.Series:
     return sig.fillna(False)
 
 
-def generate_trades(df: pd.DataFrame, settings, symbol: str = "") -> list[dict]:
-    """Generate non-overlapping trades for one symbol (one position at a time)."""
+def generate_trades(df: pd.DataFrame, settings, symbol: str = "",
+                    regime_ok: Optional[pd.Series] = None) -> list[dict]:
+    """Generate non-overlapping trades for one symbol (one position at a time).
+
+    ``regime_ok`` (optional, date-indexed bool) gates entries to days when the
+    broad market is healthy — mirroring the live market-regime gate.
+    """
     if df is None or len(df) < 220:
         return []
     df = df.sort_index()
     risk = settings.risk
     exits_cfg = settings.exits
 
-    sig = _entry_signal(df, settings).to_numpy()
+    sig = _entry_signal(df, settings)
+    if regime_ok is not None:
+        sig = sig & regime_ok.reindex(df.index).ffill().fillna(False)
+    sig = sig.to_numpy()
     atr = I.atr(df, settings.technical.atr_period).to_numpy()
     sma50 = I.sma(df["close"], exits_cfg.trend_reversal_sma).to_numpy()
     o = df["open"].to_numpy(float)
@@ -149,14 +157,22 @@ def run_backtest(
     settings,
     start: Optional[str] = None,
     end: Optional[str] = None,
+    regime_filter: bool = True,
+    benchmark: Optional[pd.Series] = None,
 ) -> BacktestResult:
-    """Portfolio backtest across many symbols with position cap + costs."""
+    """Portfolio backtest across many symbols with position cap + costs.
+
+    When ``regime_filter`` is True, entries are only allowed while the broad
+    market is above its 200-DMA — mirroring the live market-regime gate. The
+    market proxy is ``benchmark`` if supplied, else an equal-weight index built
+    from the universe (offline-safe).
+    """
     bt = settings.backtest
     start = start or bt.start
     end = end or bt.end
 
-    # 1) generate per-symbol trades
-    all_trades: list[dict] = []
+    # 1a) filter each symbol to [start, end]; collect closes for the panel.
+    data: dict[str, pd.DataFrame] = {}
     close_panel: dict[str, pd.Series] = {}
     for sym, df in prices.items():
         if df is None or len(df) == 0:
@@ -168,16 +184,38 @@ def run_backtest(
             d = d[d.index <= pd.Timestamp(end)]
         if len(d) < 220:
             continue
+        data[sym] = d
         close_panel[sym] = d["close"]
-        all_trades.extend(generate_trades(d, settings, sym))
+
+    if not close_panel:
+        return BacktestResult(pd.DataFrame(), pd.Series(dtype=float), {"trades": 0},
+                              "No symbols had enough history in this period.")
+
+    panel = pd.DataFrame(close_panel).sort_index().ffill()
+
+    # 1b) Market-regime proxy: only allow entries while the broad market is above
+    #     its 200-DMA. Uses `benchmark` if given, else an equal-weight index of
+    #     the universe (each stock normalised to its first close, then averaged).
+    regime_ok = None
+    if regime_filter:
+        if benchmark is not None and len(benchmark):
+            bench = benchmark.reindex(panel.index).ffill()
+        else:
+            firsts = {c: panel[c].loc[panel[c].first_valid_index()]
+                      for c in panel.columns if panel[c].first_valid_index() is not None}
+            bench = panel[list(firsts)].divide(pd.Series(firsts)).mean(axis=1)
+        regime_ok = (bench > I.sma(bench, 200)).fillna(False)
+
+    # 1c) generate per-symbol trades (entries gated by the regime filter).
+    all_trades: list[dict] = []
+    for sym, d in data.items():
+        all_trades.extend(generate_trades(d, settings, sym, regime_ok=regime_ok))
 
     if not all_trades:
-        empty = pd.Series(dtype=float)
-        return BacktestResult(pd.DataFrame(), empty, {"trades": 0},
+        return BacktestResult(pd.DataFrame(), pd.Series(dtype=float), {"trades": 0},
                               "No trades were generated in this period.")
 
     trades_df = pd.DataFrame(all_trades).sort_values("entry_date").reset_index(drop=True)
-    panel = pd.DataFrame(close_panel).sort_index().ffill()
 
     # 2) chronological portfolio simulation with daily mark-to-market
     capital = float(bt.initial_capital)
