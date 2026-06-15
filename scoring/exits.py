@@ -63,6 +63,7 @@ def evaluate_exit(
     last_close = _last(price_df["close"]) if len(price_df) else entry
     last_high = _last(price_df["high"]) if len(price_df) else last_close
     last_low = _last(price_df["low"]) if len(price_df) else last_close
+    last_open = _last(price_df["open"]) if len(price_df) else last_close
     holding_days = (mctx.as_of - position.entry_date).days          # calendar (for display)
     trading_held = trading_days_until(mctx.as_of, position.entry_date)  # NSE trading bars held
 
@@ -89,18 +90,40 @@ def evaluate_exit(
         return ExitDecision(True, reason, round(price, 2), new_high, round(new_stop, 2),
                             round(pnl, 2), holding_days, detail)
 
-    # 1. target
-    if position.target and last_high >= float(position.target):
-        return _decide(ExitReason.TARGET_HIT, float(position.target),
-                       f"high {last_high:.1f} reached target {position.target:.1f}")
-    # 2. hard stop
-    if last_low <= float(position.stop_loss):
-        return _decide(ExitReason.STOP_HIT, float(position.stop_loss),
-                       f"low {last_low:.1f} hit stop {position.stop_loss:.1f}")
-    # 3. trailing stop
-    if risk.trailing.enabled and new_stop > float(position.stop_loss) and last_low <= new_stop:
-        return _decide(ExitReason.TRAILING_STOP, new_stop,
-                       f"low {last_low:.1f} hit trailing stop {new_stop:.1f}")
+    # 1-3. target / stop / trailing stop, with REALISTIC fills and conservative
+    # same-bar handling. The active stop is the trailing level once it has
+    # ratcheted above the original, else the hard stop.
+    target = float(position.target) if position.target else None
+    hard_stop = float(position.stop_loss)
+    trailing_on = risk.trailing.enabled and new_stop > hard_stop
+    effective_stop = new_stop if trailing_on else hard_stop
+    stop_reason = ExitReason.TRAILING_STOP if trailing_on else ExitReason.STOP_HIT
+    stop_word = "trailing stop" if trailing_on else "stop"
+
+    hit_target = target is not None and last_high >= target
+    hit_stop = last_low <= effective_stop
+    has_open = not math.isnan(last_open)
+
+    if hit_stop or hit_target:
+        gap_thru_stop = hit_stop and has_open and last_open <= effective_stop
+        gap_thru_target = hit_target and has_open and last_open >= target
+        if gap_thru_target and not gap_thru_stop:
+            # Opened above the target -> realistic fill is the gapped open.
+            return _decide(ExitReason.TARGET_HIT, last_open,
+                           f"gapped open {last_open:.1f} above target {target:.1f}")
+        if gap_thru_stop:
+            # Opened below the stop -> realistic fill is the gapped open, not the
+            # stop level (this is what understated losses on gap-down days).
+            return _decide(stop_reason, last_open,
+                           f"gapped open {last_open:.1f} below {stop_word} {effective_stop:.1f}")
+        if hit_stop:
+            # Both stop and target touched intrabar (or only the stop): we cannot
+            # know which came first within the bar, so assume the stop (conservative).
+            return _decide(stop_reason, effective_stop,
+                           f"low {last_low:.1f} hit {stop_word} {effective_stop:.1f}")
+        # Only the target was reached intrabar.
+        return _decide(ExitReason.TARGET_HIT, target,
+                       f"high {last_high:.1f} reached target {target:.1f}")
     # 4. time exit (compared in trading days, matching the "~1 trading month" config)
     if trading_held >= risk.max_holding_days:
         return _decide(ExitReason.TIME_EXIT, last_close,

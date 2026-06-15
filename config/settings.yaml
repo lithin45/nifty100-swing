@@ -13,6 +13,13 @@ project:
 
 # Path (relative to config/) of the universe file.
 universe_csv: "nifty100.csv"
+# Live scan universe(s): if set, the daily scan unions ALL of these files
+# (de-duplicated by symbol). This is how Nifty 100 + Midcap 150 both show up in
+# the dashboard / watchlist. Comment this out to scan only `universe_csv` above.
+# Refresh each list with: python scripts/build_universe.py --index <name>
+universe_csvs:
+  - "nifty100.csv"
+  - "niftymidcap150.csv"
 
 # ---------------------------------------------------------------------
 # DATA: where prices come from and how far back to load
@@ -244,6 +251,7 @@ sectors:
     "Nifty Realty": "^CNXREALTY"
     "Nifty Financial Services": "NIFTY_FIN_SERVICE.NS"
     "Nifty Media": "^CNXMEDIA"
+    "Nifty Infrastructure": "^CNXINFRA"   # covers Infrastructure-labelled stocks (L&T, ABB, BEL, HAL, SIEMENS, ADANIPORTS)
 
 # ---------------------------------------------------------------------
 # ALERTS

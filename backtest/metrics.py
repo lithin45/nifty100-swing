@@ -79,7 +79,9 @@ def compute_metrics(equity: pd.Series, trades: pd.DataFrame) -> dict:
         out["avg_loss_pct"] = round(losses.mean(), 2) if len(losses) else 0.0
         gross_win = wins.sum()
         gross_loss = abs(losses.sum())
-        out["profit_factor"] = round(gross_win / gross_loss, 2) if gross_loss > 0 else float("inf")
+        # None (not inf) when there are no losing trades: inf serialises to the
+        # invalid JSON token "Infinity" and prints as "inf" to the user.
+        out["profit_factor"] = round(gross_win / gross_loss, 2) if gross_loss > 0 else None
         out["expectancy_pct"] = round(r.mean(), 2)
         if "bars_held" in trades.columns and len(trades):
             out["avg_holding_days"] = round(float(trades["bars_held"].mean()), 1)
@@ -103,6 +105,19 @@ def plain_english_summary(metrics: dict) -> str:
         return "No trades were generated in this period, so there is nothing to evaluate."
 
     lines = []
+    # Blunt, unmissable warning when the configuration lost money in the test.
+    expectancy = metrics.get("expectancy_pct")
+    pf = metrics.get("profit_factor")
+    lost_money = (
+        (metrics.get("total_return_pct") is not None and metrics["total_return_pct"] < 0)
+        or (expectancy is not None and expectancy < 0)
+        or (pf is not None and pf < 1)
+    )
+    if lost_money:
+        lines.append(
+            "⚠️ THIS CONFIGURATION LOST MONEY IN THE BACKTEST — do NOT trade real "
+            "capital on it. Treat the signals as paper-trade / research only.\n"
+        )
     cagr_ = metrics.get("cagr_pct")
     if cagr_ is not None:
         lines.append(f"• Grew about {cagr_:.1f}% per year on average (CAGR).")
@@ -114,9 +129,10 @@ def plain_english_summary(metrics: dict) -> str:
     if "sharpe" in metrics:
         q = ("good" if metrics["sharpe"] >= 1 else "modest" if metrics["sharpe"] >= 0.5 else "weak")
         lines.append(f"• Risk-adjusted return (Sharpe) was {metrics['sharpe']:.2f} — {q}.")
+    pf_txt = "n/a (no losing trades)" if pf is None else f"{pf}"
     lines.append(
         f"• Won {metrics.get('win_rate_pct', 0):.0f}% of {metrics.get('trades', 0)} trades; "
-        f"profit factor {metrics.get('profit_factor', 0)} "
+        f"profit factor {pf_txt} "
         f"(>1 means winners outweigh losers)."
     )
     lines.append(

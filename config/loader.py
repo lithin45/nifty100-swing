@@ -12,8 +12,11 @@ from pathlib import Path
 import yaml
 
 from common.calendar_nse import register_holidays
-from common.paths import SETTINGS_FILE, UNIVERSE_FILE
+from common.logging_config import get_logger
+from common.paths import CONFIG_DIR, SETTINGS_FILE, UNIVERSE_FILE
 from config.schema import Settings, Stock
+
+log = get_logger(__name__)
 
 
 def load_settings(path: str | Path | None = None) -> Settings:
@@ -44,17 +47,13 @@ def reload_settings() -> Settings:
     return get_settings()
 
 
-def load_universe(path: str | Path | None = None) -> list[Stock]:
-    """Parse ``nifty100.csv`` into a list of :class:`Stock`.
+def _read_universe_csv(p: Path) -> list[Stock]:
+    """Parse a single universe CSV into a list of :class:`Stock`.
 
     Expected header (case-insensitive): ``symbol, isin, upstox_key, sector``.
     An optional ``name`` column is used for display if present. Blank
     ISIN/upstox_key are tolerated — the yfinance price path only needs symbols.
     """
-    p = Path(path) if path else UNIVERSE_FILE
-    if not p.exists():
-        raise FileNotFoundError(f"Universe CSV not found: {p}")
-
     stocks: list[Stock] = []
     with open(p, "r", encoding="utf-8-sig", newline="") as fh:
         reader = csv.DictReader(fh)
@@ -82,6 +81,40 @@ def load_universe(path: str | Path | None = None) -> list[Stock]:
                 )
             )
     return stocks
+
+
+def load_universe(path: str | Path | None = None) -> list[Stock]:
+    """Load the trading universe.
+
+    With an explicit ``path``, parse that one CSV. Otherwise union the configured
+    universe file(s) — ``settings.universe_csvs`` if set (e.g. Nifty 100 + Midcap
+    150), else the single ``settings.universe_csv`` — de-duplicated by symbol
+    (first file wins). This is what makes midcaps appear in the live scan.
+    """
+    if path is not None:
+        p = Path(path)
+        if not p.exists():
+            raise FileNotFoundError(f"Universe CSV not found: {p}")
+        return _read_universe_csv(p)
+
+    settings = get_settings()
+    names = settings.universe_csvs or [settings.universe_csv]
+    merged: list[Stock] = []
+    seen: set[str] = set()
+    for name in names:
+        fp = Path(name)
+        if not fp.is_absolute():
+            fp = CONFIG_DIR / name
+        if not fp.exists():
+            log.warning("universe CSV not found, skipping: %s", fp)
+            continue
+        for s in _read_universe_csv(fp):
+            if s.symbol not in seen:
+                seen.add(s.symbol)
+                merged.append(s)
+    if not merged:  # never run empty — fall back to the shipped default
+        return _read_universe_csv(UNIVERSE_FILE)
+    return merged
 
 
 def universe_map(path: str | Path | None = None) -> dict[str, Stock]:

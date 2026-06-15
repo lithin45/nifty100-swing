@@ -37,6 +37,8 @@ def rsi(close: pd.Series, length: int = 14) -> pd.Series:
     # All-gains -> 100; all-losses -> 0.
     out = out.where(avg_loss != 0, 100.0)
     out = out.where(avg_gain != 0, out.where(avg_loss == 0, 0.0))
+    # Flat stretch (no gains AND no losses) is undefined -> neutral 50, not 100.
+    out = out.mask((avg_gain == 0) & (avg_loss == 0), 50.0)
     return out
 
 

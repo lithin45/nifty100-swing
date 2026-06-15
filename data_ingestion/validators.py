@@ -107,9 +107,16 @@ def sanity_checks(
 class BhavcopyValidator:
     """Cross-check & repair recent bars against the NSE bhavcopy."""
 
-    def __init__(self, tolerance_pct: float = 1.0, cache_ttl_hours: float = 36.0) -> None:
+    def __init__(self, tolerance_pct: float = 1.0, cache_ttl_hours: float = 36.0,
+                 prices_adjusted: bool = True) -> None:
         self.tolerance_pct = tolerance_pct
         self.cache = DiskCache("bhavcopy", ttl_hours=cache_ttl_hours)
+        # yfinance returns split/dividend-ADJUSTED prices while the NSE bhavcopy is
+        # RAW/unadjusted. When prices are adjusted, the two are not comparable on
+        # absolute levels (a recent dividend/split shows a legitimate gap), so we
+        # must NOT overwrite the adjusted bar with the raw value — that corrupts
+        # good data. We still record the deviation as an informational issue.
+        self.prices_adjusted = prices_adjusted
 
     def fetch_bhavcopy(self, day: dt.date) -> pd.DataFrame:
         """Return the NSE bhavcopy for ``day`` indexed by symbol (or empty)."""
@@ -196,9 +203,17 @@ class BhavcopyValidator:
                         DataIssue(day, "bhavcopy_deviation",
                                   f"{col} {cur} vs bhavcopy {ref_val} ({dev:.1f}%)")
                     )
-                    if repair:
+                    # Only overwrite with the raw bhavcopy value when our prices are
+                    # themselves raw/unadjusted. If they are adjusted, a deviation is
+                    # usually a legitimate corporate-action gap, not a bad bar.
+                    if repair and not self.prices_adjusted:
                         out.at[ts, col] = ref_val
                         if day not in result.repaired_dates:
                             result.repaired_dates.append(day)
+                    elif repair and self.prices_adjusted:
+                        log.debug(
+                            "bhavcopy deviation for %s on %s (%s %s vs raw %s); not "
+                            "repairing adjusted prices", symbol, day, col, cur, ref_val,
+                        )
 
         return normalize_ohlcv(out, drop_na=False), result

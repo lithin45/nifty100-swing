@@ -34,6 +34,7 @@ SECTOR_TO_INDEX: dict[str, str] = {
     "Power": "Nifty Energy",
     "Realty": "Nifty Realty",
     "Media": "Nifty Media",
+    "Infrastructure": "Nifty Infrastructure",
 }
 
 _RS_SATURATION = 0.15  # 15% relative outperformance -> RS = 1.0
@@ -68,7 +69,34 @@ def compute_sector_rs(provider, settings) -> dict[str, float]:
     for label, index_name in SECTOR_TO_INDEX.items():
         if index_name in rs_by_index:
             rs_by_label[label] = rs_by_index[index_name]
+
+    _warn_unmapped_sectors()
     return rs_by_label
+
+
+def _warn_unmapped_sectors() -> None:
+    """Surface universe sector labels that have no sectoral-index mapping.
+
+    For an unmapped label the sector sub-score, the trend-gate sector override and
+    the sector-rollover exit all silently no-op, so make the gap visible once.
+    """
+    try:
+        from config.loader import load_universe
+
+        universe_sectors = {
+            s.sector for s in load_universe()
+            if getattr(s, "sector", None)
+        }
+    except Exception:
+        return
+    unmapped = sorted(universe_sectors - set(SECTOR_TO_INDEX))
+    if unmapped:
+        log.warning(
+            "No sectoral-index mapping for %d universe sector(s): %s — sector "
+            "factor/override/exit are neutral for stocks in these sectors. Add "
+            "them to SECTOR_TO_INDEX (and settings.sectors.indices).",
+            len(unmapped), ", ".join(unmapped),
+        )
 
 
 class SectorFactorAnalyzer:

@@ -30,6 +30,7 @@ import datetime as dt
 from typing import Optional
 
 from analyzers.context import MarketContext, StockContext
+from analyzers.event_driven import event_risk_flags
 from analyzers.sector_factor import compute_sector_rs
 from common.calendar_nse import is_trading_day, previous_trading_day
 from common.logging_config import get_logger, setup_logging
@@ -220,7 +221,8 @@ def process_exits(mctx, providers, run_id) -> list[Signal]:
 
 
 def run_eod(limit: Optional[int] = None, send: bool = True,
-            date_str: Optional[str] = None, force: bool = False) -> dict:
+            date_str: Optional[str] = None, force: bool = False,
+            universe_csv: Optional[str] = None) -> dict:
     settings = get_settings()
     setup_logging(settings.logging.level)
     # On weekday NSE holidays there is no fresh bar — skip to avoid duplicate runs.
@@ -231,7 +233,7 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
     log.info("=== EOD run for %s ===", as_of)
 
     db.init_db()
-    universe = load_universe()
+    universe = load_universe(universe_csv)
     if limit:
         universe = universe[:limit]
 
@@ -248,7 +250,8 @@ def run_eod(limit: Optional[int] = None, send: bool = True,
             log.warning("news fetch failed: %s", exc)
             headlines, news_map = [], {}
 
-        validator = BhavcopyValidator() if settings.data.validate_with_bhavcopy else None
+        validator = (BhavcopyValidator(prices_adjusted=settings.data.adjust_ohlc)
+                     if settings.data.validate_with_bhavcopy else None)
         providers = (get_price_provider(settings), get_fundamentals_provider(),
                      get_events_provider(), validator)
 
@@ -403,6 +406,8 @@ def main() -> None:
     parser.add_argument("--no-send", action="store_true", help="skip Telegram alerts")
     parser.add_argument("--date", type=str, default=None, help="override trading date (YYYY-MM-DD)")
     parser.add_argument("--force", action="store_true", help="run even on a non-trading day")
+    parser.add_argument("--universe", type=str, default=None,
+                        help="scan a specific universe CSV (default: settings universe_csvs)")
     parser.add_argument("--log-level", type=str, default=None)
     args = parser.parse_args()
 
@@ -410,7 +415,8 @@ def main() -> None:
     if args.mode == "premarket":
         result = run_premarket(send=not args.no_send, date_str=args.date, force=args.force)
     else:
-        result = run_eod(limit=args.limit, send=not args.no_send, date_str=args.date, force=args.force)
+        result = run_eod(limit=args.limit, send=not args.no_send, date_str=args.date,
+                         force=args.force, universe_csv=args.universe)
     print(result)
 
 

@@ -86,7 +86,14 @@ class NseEventsProvider(EventsProvider):
             from nsepython import nsefetch
 
             data = nsefetch("https://www.nseindia.com/api/fnoBan")
-            banned = {str(x).strip().upper() for x in (data or [])}
+            # NSE sometimes wraps the list in a dict (e.g. {"data": [...]}) or adds
+            # a timestamp. Iterating a dict yields its KEYS, which would silently
+            # drop the real banned symbols, so unwrap to the underlying list first.
+            if isinstance(data, dict):
+                data = next((v for v in data.values() if isinstance(v, list)), [])
+            if not isinstance(data, (list, tuple, set)):
+                data = []
+            banned = {str(x).strip().upper() for x in data if str(x).strip()}
         except Exception as exc:
             log.debug("F&O ban fetch failed: %s", exc)
         self.cache.set("fno_ban", banned)

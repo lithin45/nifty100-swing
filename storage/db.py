@@ -118,14 +118,23 @@ def finish_run(
         run.n_exit = sum(1 for sig in run.signals if sig.action == SignalAction.EXIT.value)
 
 
-def latest_run(db_path: Optional[str] = None) -> Optional[Run]:
+def latest_run(db_path: Optional[str] = None, exclude_premarket: bool = True) -> Optional[Run]:
+    """Most recent run. By default skips pre-market brief runs so the dashboard's
+    'today's signals' panel keeps showing the last real EOD scan (the pre-market
+    run produces no BUY/EXIT signals and would otherwise blank the panel)."""
     with session_scope(db_path) as s:
-        return s.scalars(
+        rows = s.scalars(
             select(Run)
             .options(selectinload(Run.signals).selectinload(Signal.sub_scores))
             .order_by(Run.started_at.desc())
-            .limit(1)
-        ).first()
+            .limit(10)
+        ).all()
+        for run in rows:
+            if (exclude_premarket and isinstance(run.market_regime, dict)
+                    and run.market_regime.get("mode") == "premarket"):
+                continue
+            return run
+        return rows[0] if rows else None
 
 
 # --------------------------------------------------------------------------- #
@@ -209,15 +218,21 @@ def save_watchlist(run_id: Optional[int], items: list[dict], db_path: Optional[s
 
 
 def latest_watchlist(db_path: Optional[str] = None) -> list[WatchItem]:
-    """Watch items from the most recent run that produced any (skips premarket runs)."""
+    """Watch items from the single most recent run that produced any.
+
+    Filters by the latest run_id (not by date): two runs on the SAME trading day
+    — e.g. a re-run, or a manual scan after the scheduled one — would otherwise
+    have their watch items merged and shown together as duplicates.
+    """
     with session_scope(db_path) as s:
         latest = s.scalars(
-            select(WatchItem.as_of).order_by(WatchItem.created_at.desc()).limit(1)
+            select(WatchItem).order_by(WatchItem.created_at.desc()).limit(1)
         ).first()
         if latest is None:
             return []
         return list(s.scalars(
-            select(WatchItem).where(WatchItem.as_of == latest).order_by(WatchItem.composite.desc())
+            select(WatchItem).where(WatchItem.run_id == latest.run_id)
+            .order_by(WatchItem.composite.desc())
         ))
 
 

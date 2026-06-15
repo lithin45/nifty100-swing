@@ -25,9 +25,13 @@ _HOLIDAY_STRINGS: set[str] = {
     "2025-02-26", "2025-03-14", "2025-03-31", "2025-04-10", "2025-04-14",
     "2025-04-18", "2025-05-01", "2025-08-15", "2025-08-27", "2025-10-02",
     "2025-10-21", "2025-10-22", "2025-11-05", "2025-12-25",
-    # ---- 2026 (provisional — fixed national holidays; VERIFY before use) ----
-    "2026-01-26", "2026-03-04", "2026-03-25", "2026-04-03", "2026-04-14",
-    "2026-05-01", "2026-08-15", "2026-10-02", "2026-11-09", "2026-12-25",
+    # ---- 2026 (verified June 2026 against NSE list via cleartax + groww) ----
+    # Aug 15 (Independence Day) falls on a Saturday in 2026, so it is not a
+    # separate weekday closure. Diwali Laxmi Pujan (Nov 8) is a Sunday (Muhurat).
+    "2026-01-15", "2026-01-26", "2026-03-03", "2026-03-26", "2026-03-31",
+    "2026-04-03", "2026-04-14", "2026-05-01", "2026-05-28", "2026-06-26",
+    "2026-09-14", "2026-10-02", "2026-10-20", "2026-11-10", "2026-11-24",
+    "2026-12-25",
 }
 
 NSE_HOLIDAYS: set[date] = {date.fromisoformat(s) for s in _HOLIDAY_STRINGS}

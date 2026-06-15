@@ -140,6 +140,15 @@ class ScoringCfg(_Base):
             raise ValueError("composite weights must be non-negative")
         if sum(v.values()) <= 0:
             raise ValueError("composite weights must sum to a positive number")
+        # Reject unknown/misspelled keys: an unrecognised key (e.g. "techncal")
+        # stays in the normalisation denominator but is never scored, silently
+        # deflating every composite and suppressing BUY signals with no error.
+        unknown = set(v) - set(_DEFAULT_WEIGHTS)
+        if unknown:
+            raise ValueError(
+                f"unknown composite weight key(s): {sorted(unknown)}. "
+                f"Valid keys: {sorted(_DEFAULT_WEIGHTS)}"
+            )
         return v
 
     @model_validator(mode="after")
@@ -427,6 +436,8 @@ class Settings(_Base):
     project: ProjectCfg = Field(default_factory=ProjectCfg)
     data: DataCfg = Field(default_factory=DataCfg)
     universe_csv: str = "nifty100.csv"
+    # If set, the live scan unions ALL of these CSVs (de-duplicated by symbol).
+    universe_csvs: list[str] | None = None
     gates: GatesCfg = Field(default_factory=GatesCfg)
     scoring: ScoringCfg = Field(default_factory=ScoringCfg)
     technical: TechnicalCfg = Field(default_factory=TechnicalCfg)

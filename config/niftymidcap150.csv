@@ -1,0 +1,155 @@
+symbol,isin,upstox_key,sector,name
+# Nifty Midcap 150 constituents. Cols: symbol, ISIN, Upstox key, sector, name.
+# yfinance path needs only `symbol` (used as <symbol>.NS). Blank upstox_key is
+# auto-derived as "NSE_EQ|<ISIN>". REFRESH with: python scripts/build_universe.py
+#   --index niftymidcap150   (constituents rebalance ~semi-annually).
+360ONE,INE466L01038,,Financial Services,360 ONE WAM Ltd
+3MINDIA,INE470A01017,,Diversified,3M India Ltd
+ABBOTINDIA,INE358A01014,,Healthcare,Abbott India Ltd
+ABCAPITAL,INE674K01013,,Financial Services,Aditya Birla Capital Ltd
+ACC,INE012A01025,,Cement,ACC Ltd
+AIAENG,INE212H01026,,Capital Goods,AIA Engineering Ltd
+AIIL,INE206F01022,,Financial Services,Authum Investment & Infrastructure Ltd
+AJANTPHARM,INE031B01049,,Healthcare,Ajanta Pharmaceuticals Ltd
+ALKEM,INE540L01014,,Healthcare,Alkem Laboratories Ltd
+ANTHEM,INE0CZ201020,,Healthcare,Anthem Biosciences Ltd
+APARINDS,INE372A01015,,Capital Goods,Apar Industries Ltd
+APLAPOLLO,INE702C01027,,Capital Goods,APL Apollo Tubes Ltd
+APOLLOTYRE,INE438A01022,,Auto,Apollo Tyres Ltd
+ASHOKLEY,INE208A01029,,Capital Goods,Ashok Leyland Ltd
+ASTRAL,INE006I01046,,Capital Goods,Astral Ltd
+ATGL,INE399L01023,,Oil & Gas,Adani Total Gas Ltd
+AUBANK,INE949L01017,,Financial Services,AU Small Finance Bank Ltd
+AUROPHARMA,INE406A01037,,Healthcare,Aurobindo Pharma Ltd
+AWL,INE699H01024,,FMCG,AWL Agri Business Ltd
+BAJAJHFL,INE377Y01014,,Financial Services,Bajaj Housing Finance Ltd
+BALKRISIND,INE787D01026,,Auto,Balkrishna Industries Ltd
+BANKINDIA,INE084A01016,,Financial Services,Bank of India
+BDL,INE171Z01026,,Capital Goods,Bharat Dynamics Ltd
+BERGEPAINT,INE463A01038,,Consumer Durables,Berger Paints India Ltd
+BHARATFORG,INE465A01025,,Auto,Bharat Forge Ltd
+BHARTIHEXA,INE343G01021,,Telecom,Bharti Hexacom Ltd
+BHEL,INE257A01026,,Capital Goods,Bharat Heavy Electricals Ltd
+BIOCON,INE376G01013,,Healthcare,Biocon Ltd
+BLUESTARCO,INE472A01039,,Consumer Durables,Blue Star Ltd
+BSE,INE118H01025,,Financial Services,BSE Ltd
+COCHINSHIP,INE704P01025,,Capital Goods,Cochin Shipyard Ltd
+COFORGE,INE591G01025,,IT,Coforge Ltd
+COLPAL,INE259A01022,,FMCG,Colgate Palmolive (India) Ltd
+CONCOR,INE111A01025,,Services,Container Corporation of India Ltd
+COROMANDEL,INE169A01031,,Chemicals,Coromandel International Ltd
+CRISIL,INE007A01025,,Financial Services,CRISIL Ltd
+DABUR,INE016A01026,,FMCG,Dabur India Ltd
+DALBHARAT,INE00R701025,,Cement,Dalmia Bharat Ltd
+DIXON,INE935N01020,,Consumer Durables,Dixon Technologies (India) Ltd
+ENDURANCE,INE913H01037,,Auto,Endurance Technologies Ltd
+ESCORTS,INE042A01014,,Capital Goods,Escorts Kubota Ltd
+EXIDEIND,INE302A01020,,Auto,Exide Industries Ltd
+FEDERALBNK,INE171A01029,,Financial Services,Federal Bank Ltd
+FLUOROCHEM,INE09N301011,,Chemicals,Gujarat Fluorochemicals Ltd
+FORTIS,INE061F01013,,Healthcare,Fortis Healthcare Ltd
+GICRE,INE481Y01014,,Financial Services,General Insurance Corporation of India
+GLAXO,INE159A01016,,Healthcare,Glaxosmithkline Pharmaceuticals Ltd
+GLENMARK,INE935A01035,,Healthcare,Glenmark Pharmaceuticals Ltd
+GMRAIRPORT,INE776C01039,,Services,GMR Airports Ltd
+GODFRYPHLP,INE260B01028,,FMCG,Godfrey Phillips India Ltd
+GODREJIND,INE233A01035,,Diversified,Godrej Industries Ltd
+GODREJPROP,INE484J01027,,Realty,Godrej Properties Ltd
+GROWW,INE0HOQ01053,,Financial Services,Billionbrains Garage Ventures Ltd
+GVT&D,INE200A01026,,Capital Goods,GE Vernova T&D India Ltd
+HAVELLS,INE176B01034,,Consumer Durables,Havells India Ltd
+HDBFS,INE756I01012,,Financial Services,HDB Financial Services Ltd
+HEROMOTOCO,INE158A01026,,Auto,Hero MotoCorp Ltd
+HEXT,INE093A01041,,IT,Hexaware Technologies Ltd
+HINDPETRO,INE094A01015,,Oil & Gas,Hindustan Petroleum Corporation Ltd
+HONAUT,INE671A01010,,Capital Goods,Honeywell Automation India Ltd
+HUDCO,INE031A01017,,Financial Services,Housing & Urban Development Corporation Ltd
+ICICIAMC,INE346A01027,,Financial Services,ICICI Prudential Asset Management Company Ltd
+ICICIGI,INE765G01017,,Financial Services,ICICI Lombard General Insurance Company Ltd
+ICICIPRULI,INE726G01019,,Financial Services,ICICI Prudential Life Insurance Company Ltd
+IDEA,INE669E01016,,Telecom,Vodafone Idea Ltd
+IDFCFIRSTB,INE092T01019,,Financial Services,IDFC First Bank Ltd
+INDIANB,INE562A01011,,Financial Services,Indian Bank
+INDUSINDBK,INE095A01012,,Financial Services,IndusInd Bank Ltd
+INDUSTOWER,INE121J01017,,Telecom,Indus Towers Ltd
+IPCALAB,INE571A01038,,Healthcare,Ipca Laboratories Ltd
+IRCTC,INE335Y01020,,Retail,Indian Railway Catering And Tourism Corporation Ltd
+IREDA,INE202E01016,,Financial Services,Indian Renewable Energy Development Agency Ltd
+ITCHOTELS,INE379A01028,,Retail,ITC Hotels Ltd
+JKCEMENT,INE823G01014,,Cement,J.K. Cement Ltd
+JSL,INE220G01021,,Metal,Jindal Stainless Ltd
+JSWENERGY,INE121E01018,,Power,JSW Energy Ltd
+JSWINFRA,INE880J01026,,Services,JSW Infrastructure Ltd
+JUBLFOOD,INE797F01020,,Retail,Jubilant Foodworks Ltd
+KALYANKJIL,INE303R01014,,Consumer Durables,Kalyan Jewellers India Ltd
+KEI,INE878B01027,,Capital Goods,KEI Industries Ltd
+KPITTECH,INE04I401011,,IT,KPIT Technologies Ltd
+KPRMILL,INE930H01031,,Textiles,K.P.R. Mill Ltd
+LAURUSLABS,INE947Q01028,,Healthcare,Laurus Labs Ltd
+LENSKART,INE956O01016,,Retail,Lenskart Solutions Ltd
+LGEINDIA,INE324D01010,,Consumer Durables,LG Electronics India Ltd
+LICHSGFIN,INE115A01026,,Financial Services,LIC Housing Finance Ltd
+LICI,INE0J1Y01017,,Financial Services,Life Insurance Corporation of India
+LINDEINDIA,INE473A01011,,Chemicals,Linde India Ltd
+LLOYDSME,INE281B01032,,Metal,Lloyds Metals And Energy Ltd
+LTF,INE498L01015,,Financial Services,L&T Finance Ltd
+LTTS,INE010V01017,,IT,L&T Technology Services Ltd
+LUPIN,INE326A01037,,Healthcare,Lupin Ltd
+M&MFIN,INE774D01024,,Financial Services,Mahindra & Mahindra Financial Services Ltd
+MAHABANK,INE457A01014,,Financial Services,Bank of Maharashtra
+MANKIND,INE634S01028,,Healthcare,Mankind Pharma Ltd
+MARICO,INE196A01026,,FMCG,Marico Ltd
+MCX,INE745G01043,,Financial Services,Multi Commodity Exchange of India Ltd
+MEDANTA,INE474Q01031,,Healthcare,Global Health Ltd
+MFSL,INE180A01020,,Financial Services,Max Financial Services Ltd
+MOTILALOFS,INE338I01027,,Financial Services,Motilal Oswal Financial Services Ltd
+MPHASIS,INE356A01018,,IT,MphasiS Ltd
+MRF,INE883A01011,,Auto,MRF Ltd
+NAM-INDIA,INE298J01013,,Financial Services,Nippon Life India Asset Management Ltd
+NATIONALUM,INE139A01034,,Metal,National Aluminium Co. Ltd
+NAUKRI,INE663F01032,,Retail,Info Edge (India) Ltd
+NHPC,INE848E01016,,Power,NHPC Ltd
+NIACL,INE470Y01017,,Financial Services,The New India Assurance Company Ltd
+NLCINDIA,INE589A01014,,Power,NLC India Ltd
+NMDC,INE584A01023,,Metal,NMDC Ltd
+NTPCGREEN,INE0ONG01011,,Power,NTPC Green Energy Ltd
+NYKAA,INE388Y01029,,Retail,FSN E-Commerce Ventures Ltd
+OBEROIRLTY,INE093I01010,,Realty,Oberoi Realty Ltd
+OFSS,INE881D01027,,IT,Oracle Financial Services Software Ltd
+OIL,INE274J01014,,Oil & Gas,Oil India Ltd
+PAGEIND,INE761H01022,,Textiles,Page Industries Ltd
+PATANJALI,INE619A01035,,FMCG,Patanjali Foods Ltd
+PAYTM,INE982J01020,,Financial Services,One 97 Communications Ltd
+PERSISTENT,INE262H01021,,IT,Persistent Systems Ltd
+PETRONET,INE347G01014,,Oil & Gas,Petronet LNG Ltd
+PHOENIXLTD,INE211B01039,,Realty,Phoenix Mills Ltd
+PIIND,INE603J01030,,Chemicals,PI Industries Ltd
+POLICYBZR,INE417T01026,,Financial Services,PB Fintech Ltd
+POLYCAB,INE455K01017,,Capital Goods,Polycab India Ltd
+POWERINDIA,INE07Y701011,,Capital Goods,Hitachi Energy India Ltd
+PREMIERENE,INE0BS701011,,Capital Goods,Premier Energies Ltd
+PRESTIGE,INE811K01011,,Realty,Prestige Estates Projects Ltd
+RADICO,INE944F01028,,FMCG,Radico Khaitan Ltd
+RVNL,INE415G01027,,Infrastructure,Rail Vikas Nigam Ltd
+SAIL,INE114A01011,,Metal,Steel Authority of India Ltd
+SBICARD,INE018E01016,,Financial Services,SBI Cards and Payment Services Ltd
+SCHAEFFLER,INE513A01022,,Auto,Schaeffler India Ltd
+SJVN,INE002L01015,,Power,SJVN Ltd
+SRF,INE647A01010,,Chemicals,SRF Ltd
+SUNDARMFIN,INE660A01013,,Financial Services,Sundaram Finance Ltd
+SUPREMEIND,INE195A01028,,Capital Goods,Supreme Industries Ltd
+SUZLON,INE040H01021,,Capital Goods,Suzlon Energy Ltd
+SWIGGY,INE00H001014,,Retail,Swiggy Ltd
+TATACOMM,INE151A01013,,Telecom,Tata Communications Ltd
+TATAELXSI,INE670A01012,,IT,Tata Elxsi Ltd
+TATAINVEST,INE672A01026,,Financial Services,Tata Investment Corporation Ltd
+THERMAX,INE152A01029,,Capital Goods,Thermax Ltd
+TIINDIA,INE974X01010,,Auto,Tube Investments of India Ltd
+TORNTPOWER,INE813H01021,,Power,Torrent Power Ltd
+UBL,INE686F01025,,FMCG,United Breweries Ltd
+UNOMINDA,INE405E01023,,Auto,UNO Minda Ltd
+UPL,INE628A01036,,Chemicals,UPL Ltd
+VMM,INE01EA01019,,Retail,Vishal Mega Mart Ltd
+VOLTAS,INE226A01021,,Consumer Durables,Voltas Ltd
+WAAREEENER,INE377N01017,,Capital Goods,Waaree Energies Ltd
+YESBANK,INE528G01035,,Financial Services,Yes Bank Ltd

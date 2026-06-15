@@ -24,6 +24,28 @@ _STOP_WORDS = {
 _PUNCT = re.compile(r"[^a-z0-9 ]+")
 _WS = re.compile(r"\s+")
 
+# Corporate suffixes to strip when building a specific (but not over-aggressive)
+# match phrase — keeps "Indian Oil" while dropping "Ltd/Corporation".
+_CORP_SUFFIXES = {"ltd", "limited", "the", "co", "company", "corporation", "corp",
+                  "industries", "enterprises", "&", "and"}
+
+# Generic words that are useless / dangerous as a standalone company alias: a name
+# that reduces to one of these (or is built ENTIRELY from them) matches unrelated
+# headlines (e.g. "Indian Oil" -> "oil" tags IOC to every crude-oil story). Such
+# stocks are matched by their ticker symbol and full name instead.
+_AMBIGUOUS_ALIASES = {
+    "oil", "gas", "power", "grid", "energy", "steel", "metal", "metals", "coal",
+    "cement", "finance", "financial", "services", "service", "bank", "banks",
+    "auto", "motors", "motor", "chemicals", "chemical", "media", "retail",
+    "ports", "port", "life", "general", "insurance", "consumer", "durables",
+    "infra", "infrastructure", "industrial", "national", "international",
+    "products", "product", "paints", "paint", "systems", "system",
+    "technologies", "technology", "tech", "foods", "food", "healthcare",
+    "health", "telecom", "aviation", "realty", "housing", "capital",
+    "securities", "holdings", "global", "india", "indian", "hotels", "hotel",
+    "electric", "electricals", "electronics", "mills", "petroleum",
+}
+
 
 def normalize_text(text: str) -> str:
     """Lower-case, strip punctuation (incl. ``&``/``-``), collapse whitespace.
@@ -40,12 +62,38 @@ def normalize_name(name: str) -> str:
     return " ".join(tokens).strip()
 
 
+def _suffix_stripped(name: str) -> str:
+    """Drop only corporate suffixes (keep geographic/sector words): a specific
+    multi-word phrase like 'indian oil' rather than the over-aggressive 'oil'."""
+    tokens = [t for t in normalize_text(name).split() if t not in _CORP_SUFFIXES]
+    return " ".join(tokens)
+
+
+def _too_generic(alias: str) -> bool:
+    """An alias is unusable if it's a single short/ambiguous word, or is built
+    ENTIRELY from generic words (e.g. 'power grid', 'indian oil')."""
+    tokens = alias.split()
+    if not tokens:
+        return True
+    if len(tokens) == 1 and (alias in _AMBIGUOUS_ALIASES or len(alias) < 4):
+        return True
+    return all(t in _AMBIGUOUS_ALIASES for t in tokens)
+
+
 def build_aliases(stock: Stock) -> set[str]:
-    """Punctuation-free match phrases: short name, full name, and a safe symbol."""
-    aliases: set[str] = set()
-    aliases.add(normalize_name(stock.name or stock.symbol))   # "reliance"
+    """Punctuation-free match phrases: short name, full name, and a safe symbol.
+
+    Generic-only derived names ('oil', 'power grid', 'indian oil') are dropped to
+    avoid tagging a stock to every commodity/sector headline; those stocks rely on
+    their ticker symbol and full company name instead.
+    """
+    candidates: set[str] = set()
+    candidates.add(normalize_name(stock.name or stock.symbol))   # "reliance"
     if stock.name:
-        aliases.add(normalize_text(stock.name))               # "larsen toubro"
+        candidates.add(_suffix_stripped(stock.name))             # "indian oil"
+        candidates.add(normalize_text(stock.name))               # full name (specific)
+    aliases = {a for a in candidates if a and not _too_generic(a)}
+
     # Trust the raw symbol only when alphanumeric and >=3 chars (TCS, ITC, IOC).
     # Skips 2-letter tickers ("LT") and punctuated ones ("M&M", "BAJAJ-AUTO"),
     # which match via their company name instead.

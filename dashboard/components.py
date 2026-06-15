@@ -168,10 +168,12 @@ def paper_trading_section(open_positions: list, closed: list) -> None:
                 "tab; this record fills in once they hit a target, stop, or time exit.")
         return
 
-    avg_w = (sum(c.pnl_pct for c in wins) / len(wins)) if wins else 0.0
-    avg_l = (sum(c.pnl_pct for c in losses) / len(losses)) if losses else 0.0
-    gross_win = sum(c.pnl_pct for c in wins)
-    gross_loss = abs(sum(c.pnl_pct for c in losses))
+    # Use (pnl_pct or 0) consistently: a closed trade can carry pnl_pct=None and
+    # the loss bucket includes it, so summing the raw attribute would TypeError.
+    avg_w = (sum(c.pnl_pct or 0 for c in wins) / len(wins)) if wins else 0.0
+    avg_l = (sum(c.pnl_pct or 0 for c in losses) / len(losses)) if losses else 0.0
+    gross_win = sum(c.pnl_pct or 0 for c in wins)
+    gross_loss = abs(sum(c.pnl_pct or 0 for c in losses))
     pf = (gross_win / gross_loss) if gross_loss else (float("inf") if gross_win else 0.0)
     d1, d2, d3 = st.columns(3)
     d1.metric("Avg win", f"{avg_w:+.1f}%")

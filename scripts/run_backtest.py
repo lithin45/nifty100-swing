@@ -60,6 +60,8 @@ def main() -> None:
     parser.add_argument("--start", type=str, default=None)
     parser.add_argument("--end", type=str, default=None)
     parser.add_argument("--synthetic", action="store_true", help="use synthetic data (no network)")
+    parser.add_argument("--universe", type=str, default=None,
+                        help="universe CSV path (e.g. config/niftymidcap150.csv); default Nifty 100")
     parser.add_argument("--walkforward", action="store_true", help="run walk-forward validation")
     parser.add_argument("--tearsheet", action="store_true", help="write QuantStats HTML")
     parser.add_argument("--no-regime", action="store_true",
@@ -77,7 +79,7 @@ def main() -> None:
         prices = _synthetic_universe()
     else:
         provider = get_price_provider(settings)
-        symbols = [s.symbol for s in load_universe()[: args.limit]]
+        symbols = [s.symbol for s in load_universe(args.universe)[: args.limit]]
         # Fetch the FULL backtest range, not the live ~800-bar cap. Without an
         # explicit start, get_history() only returns data.history_days of bars,
         # which silently truncates a multi-year --start.
